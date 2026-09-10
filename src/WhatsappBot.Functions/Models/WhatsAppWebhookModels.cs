@@ -30,6 +30,46 @@ public class WhatsAppValue
 
     [JsonPropertyName("contacts")]
     public List<WhatsAppContact>? Contacts { get; set; }
+
+    [JsonPropertyName("statuses")]
+    public List<WhatsAppStatus>? Statuses { get; set; }
+}
+
+// Meta manda un "status" por cada mensaje saliente: sent / delivered / read / failed.
+public class WhatsAppStatus
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("recipient_id")]
+    public string RecipientId { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("errors")]
+    public List<WhatsAppStatusError>? Errors { get; set; }
+}
+
+public class WhatsAppStatusError
+{
+    [JsonPropertyName("code")]
+    public int Code { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("error_data")]
+    public WhatsAppStatusErrorData? ErrorData { get; set; }
+}
+
+public class WhatsAppStatusErrorData
+{
+    [JsonPropertyName("details")]
+    public string? Details { get; set; }
 }
 
 public class WhatsAppContact

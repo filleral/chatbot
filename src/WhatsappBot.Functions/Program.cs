@@ -120,8 +120,9 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
 
     var hayMensajes = lotes.Any(v => (v.Messages ?? new List<WhatsAppMessage>())
         .Any(m => m.Type is "text" or "interactive" or "button"));
+    var hayEstados = lotes.Any(v => v.Statuses is { Count: > 0 });
 
-    if (!hayMensajes)
+    if (!hayMensajes && !hayEstados)
     {
         return Results.Ok();
     }
@@ -129,9 +130,28 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
     try
     {
         var sp = req.HttpContext.RequestServices;
+        var msgLog = sp.GetRequiredService<IMessageLog>();
+
+        // Estados de entrega de los mensajes que el bot envió (sent/delivered/read/failed).
+        foreach (var estado in lotes.SelectMany(v => v.Statuses ?? new List<WhatsAppStatus>()))
+        {
+            if (estado.Status is "failed")
+            {
+                var e = estado.Errors?.FirstOrDefault();
+                var detalle = e is null
+                    ? "Meta reportó el envío como fallido."
+                    : $"[{e.Code}] {e.Title}: {e.Message ?? e.ErrorData?.Details}";
+                await msgLog.RegistrarSalienteAsync(estado.RecipientId, "estado", "❌ no entregado", false, detalle);
+            }
+        }
+
+        if (!hayMensajes)
+        {
+            return Results.Ok();
+        }
+
         var flow = sp.GetRequiredService<FlowEngine>();
         var store = sp.GetRequiredService<IConversationStateService>();
-        var msgLog = sp.GetRequiredService<IMessageLog>();
 
         foreach (var value in lotes)
         {
