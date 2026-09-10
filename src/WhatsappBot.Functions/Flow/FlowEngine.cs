@@ -97,10 +97,16 @@ public class FlowEngine
                 break;
 
             case FlowStep.Finalizado:
-            default:
                 await _whatsApp.SendTextAsync(state.PhoneNumber,
                     "Un asesor ya fue notificado y se comunicará contigo pronto. 🙏\n\n" +
                     "Escribe *menú* si quieres hacer otra consulta.");
+                break;
+
+            default:
+                // Estado desconocido (p. ej. una conversación que venía de una versión anterior):
+                // se empieza de cero.
+                state.Reiniciar();
+                await EnviarMenuAsync(state);
                 break;
         }
     }
