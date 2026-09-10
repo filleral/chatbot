@@ -10,6 +10,9 @@ public class PostgresLeadRepository : ILeadRepository
 {
     private readonly string _connectionString;
 
+    private static bool _columnasOk;
+    private static readonly SemaphoreSlim _migracionLock = new(1, 1);
+
     public PostgresLeadRepository(IConfiguration config)
     {
         _connectionString = config["PostgresConnectionString"]
@@ -18,25 +21,53 @@ public class PostgresLeadRepository : ILeadRepository
 
     public async Task GuardarAsync(ConversationState state)
     {
-        var c = state.Criteria;
         await using var conn = new NpgsqlConnection(_connectionString);
+        await AsegurarColumnasAsync(conn);
+
+        var detalle = state.Respuestas.Count > 0
+            ? string.Join(" | ", state.Respuestas.Select(r => $"{r.Pregunta}: {r.Valor}"))
+            : null;
+
+        var inmuebles = state.PropiedadesMostradas.Count > 0
+            ? string.Join(" ; ", state.PropiedadesMostradas)
+            : null;
+
         await conn.ExecuteAsync(@"
             INSERT INTO leads
-                (phone_number, nombre, tipo_interes, zona, presupuesto_rango, habitaciones, estado)
+                (phone_number, nombre, tipo_interes, zona, presupuesto_rango, detalle, propiedades_mostradas, estado)
             VALUES
-                (@PhoneNumber, @Nombre, @Tipo, @Zona, @Presupuesto, @Habitaciones, 'notificado');",
+                (@Phone, @Nombre, @Flujo, @Zona, @Presupuesto, @Detalle, @Inmuebles, 'notificado');",
             new
             {
-                state.PhoneNumber,
+                Phone = state.PhoneNumber,
                 Nombre = Limitar(state.NombreContacto, 300),
-                Tipo = c.Tipo,
-                Zona = Limitar(c.Zona, 300),
-                Presupuesto = Limitar(c.RangoPrecio, 100),
-                Habitaciones = Limitar(c.Habitaciones, 20)
+                Flujo = state.FlujoActivo,
+                Zona = Limitar(state.Criteria.Zona, 300),
+                Presupuesto = Limitar(state.Criteria.RangoPrecio, 100),
+                Detalle = detalle,
+                Inmuebles = inmuebles
             });
     }
 
-    // Las columnas son 'text' (sin límite), pero recortamos por si llega algo absurdamente largo.
+    /// <summary>Añade las columnas nuevas si la tabla se creó con una versión anterior del esquema.</summary>
+    private static async Task AsegurarColumnasAsync(NpgsqlConnection conn)
+    {
+        if (_columnasOk) return;
+        await _migracionLock.WaitAsync();
+        try
+        {
+            if (_columnasOk) return;
+            await conn.ExecuteAsync(@"
+                ALTER TABLE leads ADD COLUMN IF NOT EXISTS detalle text;
+                ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedades_mostradas text;");
+            _columnasOk = true;
+        }
+        finally
+        {
+            _migracionLock.Release();
+        }
+    }
+
     private static string? Limitar(string? s, int max) =>
         string.IsNullOrEmpty(s) ? s : (s.Length <= max ? s : s[..max]);
 }

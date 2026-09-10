@@ -2,7 +2,7 @@
 
 Bot conversacional por menús (botones/listas, no texto libre con IA) para WhatsApp Business, que:
 
-- guía al usuario paso a paso: **arriendo o venta → zona → presupuesto → habitaciones**,
+- guía al usuario por un **menú de 8 opciones** (arriendo, administración, compra, venta, asesoría de venta, notarial, jurídica, otro) — los mismos flujos que el bot de n8n,
 - consulta los inmuebles disponibles leyéndolos de tu página web **igual que hacía el flujo de n8n**
   (scraping del listado público + deducción de habitaciones desde el título),
 - y al final, si el usuario quiere seguir, **le avisa a un asesor humano** con los datos capturados para que atienda personalmente.
@@ -46,49 +46,36 @@ Piezas:
 
 ## 2. Flujo conversacional
 
+Menú principal (lista interactiva con los 8 flujos de n8n). El usuario elige tocando la lista
+o escribiendo el número:
+
 ```
-Usuario escribe algo
-        │
-        ▼
-  Menú principal (lista interactiva)
-  ┌─────────────┬─────────────┬────────────────────┐
-  │ 🏠 Arriendo │ 🏡 Venta    │ 🗣️ Hablar con asesor │
-  └──────┬──────┴──────┬──────┴──────────┬──────────┘
-         │             │                 │
-         ▼             ▼                 ▼
-   ¿Zona/barrio?  ¿Zona/barrio?    Pide nombre
-         │             │                 │
-         ▼             ▼                 ▼
-  ¿Presupuesto?  ¿Presupuesto?     Notifica al asesor
-         │             │            (WhatsApp interno)
-         ▼             ▼                 │
-  ¿Habitaciones? ¿Habitaciones?          ▼
-         │             │          "Te contactará
-         ▼             ▼           en breve"
-   Consulta el listado de tu página
-         │
-         ▼
-  Muestra hasta 3 resultados
-         │
-         ▼
-  "¿Quieres hablar con un asesor
-   sobre estas opciones?"
-      Sí ──► Pide nombre ──► Notifica al asesor
-      No ──► "Quedo atento, escribe cuando quieras"
+1️⃣ Tomar en arriendo   →  personas → mascotas → documentos → ingresos 2× → inmuebles → asesor
+2️⃣ Administrar inmueble →  nº inmuebles → ocupación → ciudad → asesor
+3️⃣ Comprar inmueble     →  tipo → zona → presupuesto → uso → inmuebles → asesor
+4️⃣ Vender inmueble      →  tipo → zona → valor esperado → asesor
+5️⃣ Asesoría para vender →  tipo → precio definido / avalúo → asesor
+6️⃣ Asesoría notarial    →  ¿qué trámite? → asesor
+7️⃣ Asesoría jurídica    →  ¿tu situación? → asesor
+8️⃣ Otro                 →  cuéntanos → asesor
 ```
 
-En cualquier punto, si el usuario escribe **"asesor"**, salta directo a pedir su nombre y notificar — no lo obligas a completar todo el árbol si no quiere. Y si escribe **"menú"** vuelve al menú principal.
+Todos los flujos terminan **avisando a un asesor** por WhatsApp con el resumen de las respuestas,
+y guardando el lead en la tabla `leads`. Las opciones 1 y 3 además muestran hasta 3 inmuebles del
+sitio antes de ofrecer el asesor.
 
-Detalles del flujo:
+- Si el usuario escribe **"menú"** en cualquier punto, vuelve al inicio.
+- El **nombre** sale del perfil de WhatsApp (como en n8n); solo se pide si el perfil no lo trae.
+- **Arriendo (1):** filtra los inmuebles por capacidad — `personas ≤ habitaciones × 2` y
+  `mascotas ≤ min(habitaciones, 2)` (reglas de n8n).
+- **Compra (3):** filtra inmuebles en venta por tipo (apartamento/casa/local/lote, buscando la
+  palabra en el título) y zona (coincidencia suave). El presupuesto se captura para el asesor
+  (el listado del sitio no expone precio).
+- Si un filtro deja 0 resultados, se relaja (catálogo pequeño); si no hay ninguno, el bot lo dice
+  y ofrece el asesor igual.
 
-- **Zona**: se ofrece con botones (Facatativá / Otra ciudad / Cualquiera) y también acepta texto libre (un barrio o municipio puntual).
-- **Presupuesto**: los rangos de los botones cambian según sea arriendo (mensual) o venta (valor total).
-- **Zona y presupuesto no filtran de verdad** el catálogo, porque el listado del sitio no expone precio ni barrio estructurados (igual que en n8n). Se capturan para pasárselos al asesor; el filtro real es por **tipo** (arriendo/venta) y **habitaciones**, y la zona filtra de forma suave contra el texto del título.
-- Cada resultado muestra habitaciones, **capacidad máxima** (hab × 2) y **mascotas máximas** (mín(hab, 2)) — las mismas reglas del n8n.
-
-Este árbol vive en un solo archivo (`Flow/FlowEngine.cs`), como una máquina de estados: cada "paso" sabe qué mensaje mandar y a qué paso siguiente pasar. Agregar una pregunta nueva (p. ej. "¿parqueadero?") es agregar un `case` más.
-
-> Las preguntas de calificación del flujo viejo de n8n (ingresos ≥ 2× canon, documentos, no extranjeros en arriendo, etc.) **no** están en esta versión porque esta guía no las contempla. Si las quieres de vuelta, son pasos `case` adicionales antes de `MostrarResultadosAsync`.
+Todo esto vive en `Flow/FlowEngine.cs` como una máquina de estados: `FlujoActivo` + `Paso`.
+Agregar/quitar una pregunta de un flujo es tocar `EnviarPreguntaActualAsync` y `ContinuarFlujoAsync`.
 
 ## 3. ¿Es realmente gratis?
 

@@ -14,14 +14,18 @@ CREATE TABLE IF NOT EXISTS leads (
     id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     phone_number          text        NOT NULL,
     nombre                text,
-    tipo_interes          text,                       -- 'arriendo' | 'venta'
+    tipo_interes          text,                       -- flujo elegido: arriendo | administracion | compra | venta | ...
     zona                  text,
     presupuesto_rango     text,
-    habitaciones          text,                       -- '1' | '2' | '3+'
-    propiedad_id_interes  text,
+    detalle               text,                       -- resumen de todas las respuestas del flujo
+    propiedades_mostradas text,                       -- inmuebles que se le mostraron, si aplica
     estado                text        NOT NULL DEFAULT 'nuevo',  -- nuevo | notificado | atendido
     created_at_utc        timestamptz NOT NULL DEFAULT now()
 );
+
+-- Si la tabla ya existía con el esquema anterior, añade las columnas nuevas:
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS detalle text;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS propiedades_mostradas text;
 
 CREATE INDEX IF NOT EXISTS ix_leads_created_at ON leads (created_at_utc DESC);
 

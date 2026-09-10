@@ -70,14 +70,13 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
 
     // Solo mensajes en los que el usuario "dijo o eligió" algo: texto o respuesta a botón/lista.
     // Recibos de estado (entregado/leído) y otros tipos se ignoran sin tocar la base de datos.
-    var mensajes = (payload?.Entry
-            .SelectMany(e => e.Changes)
-            .SelectMany(c => c.Value.Messages ?? new List<WhatsAppMessage>())
-            ?? Enumerable.Empty<WhatsAppMessage>())
-        .Where(m => m.Type is "text" or "interactive" or "button")
-        .ToList();
+    var lotes = (payload?.Entry.SelectMany(e => e.Changes).Select(c => c.Value)
+                 ?? Enumerable.Empty<WhatsAppValue>()).ToList();
 
-    if (mensajes.Count == 0)
+    var hayMensajes = lotes.Any(v => (v.Messages ?? new List<WhatsAppMessage>())
+        .Any(m => m.Type is "text" or "interactive" or "button"));
+
+    if (!hayMensajes)
     {
         return Results.Ok();
     }
@@ -87,17 +86,28 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
         var flow = req.HttpContext.RequestServices.GetRequiredService<FlowEngine>();
         var store = req.HttpContext.RequestServices.GetRequiredService<IConversationStateService>();
 
-        foreach (var mensaje in mensajes)
+        foreach (var value in lotes)
         {
-            try
+            var nombrePerfil = value.Contacts?.FirstOrDefault()?.Profile?.Name;
+
+            foreach (var mensaje in (value.Messages ?? new List<WhatsAppMessage>())
+                         .Where(m => m.Type is "text" or "interactive" or "button"))
             {
-                var state = await store.GetOrCreateAsync(mensaje.From);
-                await flow.ProcesarMensajeAsync(state, mensaje.GetUserInput());
-            }
-            catch (Exception ex)
-            {
-                // Un error en un mensaje no debe tumbar el resto del batch ni el webhook.
-                log.LogError(ex, "Error procesando mensaje de {From}", mensaje.From);
+                try
+                {
+                    var state = await store.GetOrCreateAsync(mensaje.From);
+                    await flow.ProcesarMensajeAsync(
+                        state,
+                        mensaje.GetUserInput(),
+                        mensaje.GetRawInput(),
+                        mensaje.GetSelectedTitle(),
+                        nombrePerfil);
+                }
+                catch (Exception ex)
+                {
+                    // Un error en un mensaje no debe tumbar el resto del batch ni el webhook.
+                    log.LogError(ex, "Error procesando mensaje de {From}", mensaje.From);
+                }
             }
         }
     }

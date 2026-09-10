@@ -27,6 +27,24 @@ public class WhatsAppValue
 {
     [JsonPropertyName("messages")]
     public List<WhatsAppMessage>? Messages { get; set; }
+
+    [JsonPropertyName("contacts")]
+    public List<WhatsAppContact>? Contacts { get; set; }
+}
+
+public class WhatsAppContact
+{
+    [JsonPropertyName("wa_id")]
+    public string WaId { get; set; } = "";
+
+    [JsonPropertyName("profile")]
+    public WhatsAppProfile? Profile { get; set; }
+}
+
+public class WhatsAppProfile
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 }
 
 public class WhatsAppMessage
@@ -47,22 +65,32 @@ public class WhatsAppMessage
     public WhatsAppButton? Button { get; set; }
 
     /// <summary>
-    /// Devuelve lo que el usuario "seleccionó o escribió", ya sea texto libre
-    /// o el id de un botón/lista, normalizado en minúsculas y sin espacios extra.
+    /// Lo que el usuario "seleccionó o escribió", normalizado (minúsculas, sin espacios extra):
+    /// el id del botón/lista, o el texto libre en minúsculas. Sirve para reconocer opciones.
     /// </summary>
-    public string GetUserInput()
+    public string GetUserInput() => GetRawInput().Trim().ToLowerInvariant();
+
+    /// <summary>
+    /// Igual que <see cref="GetUserInput"/> pero SIN pasar a minúsculas: para guardar
+    /// respuestas de texto libre (nombre, barrio, valor esperado, trámite…) tal cual.
+    /// </summary>
+    public string GetRawInput()
     {
         if (Interactive?.ButtonReply is not null)
-            return Interactive.ButtonReply.Id.Trim().ToLowerInvariant();
+            return Interactive.ButtonReply.Id.Trim();
 
         if (Interactive?.ListReply is not null)
-            return Interactive.ListReply.Id.Trim().ToLowerInvariant();
+            return Interactive.ListReply.Id.Trim();
 
         if (Button is not null)
-            return (Button.Payload ?? Button.Text ?? "").Trim().ToLowerInvariant();
+            return (Button.Payload ?? Button.Text ?? "").Trim();
 
-        return (Text?.Body ?? "").Trim().ToLowerInvariant();
+        return (Text?.Body ?? "").Trim();
     }
+
+    /// <summary>Título visible del botón/lista que tocó el usuario (para mostrarlo en el resumen).</summary>
+    public string? GetSelectedTitle() =>
+        Interactive?.ButtonReply?.Title ?? Interactive?.ListReply?.Title;
 }
 
 public class WhatsAppText

@@ -40,8 +40,10 @@ public class Property
 /// <summary>Criterios de búsqueda recolectados durante la conversación.</summary>
 public class SearchCriteria
 {
-    public string? Tipo { get; set; }          // "arriendo" | "venta"
-    public string? Zona { get; set; }           // texto libre o "cualquiera"
-    public string? RangoPrecio { get; set; }    // etiqueta legible, ej: "$1M–$2M/mes"
-    public string? Habitaciones { get; set; }   // "1" | "2" | "3+"
+    public string? Tipo { get; set; }           // "arriendo" | "venta"
+    public string? TipoInmueble { get; set; }    // "apartamento" | "casa" | "local" | "lote" | "otro"
+    public string? Zona { get; set; }            // texto libre o "cualquiera"
+    public string? RangoPrecio { get; set; }     // etiqueta legible
+    public int? Personas { get; set; }           // flujo arriendo
+    public int? Mascotas { get; set; }           // flujo arriendo
 }

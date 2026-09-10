@@ -5,13 +5,9 @@ using WhatsappBot.Functions.Models;
 namespace WhatsappBot.Functions.Services;
 
 /// <summary>
-/// Avisa al asesor (o asesores) humano cuando el flujo llega al final.
-///
-/// Implementación por defecto: manda un WhatsApp normal a cada número configurado en
-/// WhatsApp:AdvisorPhoneNumber (uno o varios, separados por coma o punto y coma) con
-/// el mismo WhatsAppService — no hace falta contratar nada extra. Si prefieres avisar
-/// por correo (Azure Communication Services / SendGrid) o por un webhook de Teams,
-/// agrega esa llamada aquí también.
+/// Avisa al asesor (o asesores) humano cuando un flujo termina, con el resumen de todo
+/// lo que respondió el cliente. Manda un WhatsApp normal a cada número de
+/// WhatsApp:AdvisorPhoneNumber (uno o varios, separados por coma).
 /// </summary>
 public class NotificationService : INotificationService
 {
@@ -25,7 +21,8 @@ public class NotificationService : INotificationService
         _logger = logger;
 
         _advisorPhoneNumbers = (config["WhatsApp:AdvisorPhoneNumber"] ?? "")
-            .Split(new[] { ',', ';', ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            .Split(new[] { ',', ';', ' ', '\n', '\r', '\t' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         if (_advisorPhoneNumbers.Length == 0)
             throw new InvalidOperationException("Falta WhatsApp:AdvisorPhoneNumber en la configuración.");
@@ -33,20 +30,20 @@ public class NotificationService : INotificationService
 
     public async Task NotificarAsesorAsync(ConversationState state)
     {
-        var c = state.Criteria;
+        var respuestas = state.Respuestas.Count > 0
+            ? "\n" + string.Join("\n", state.Respuestas.Select(r => $"• {r.Pregunta}: {r.Valor}"))
+            : "";
 
         var inmuebles = state.PropiedadesMostradas.Count > 0
             ? "\n\n🏘️ Inmuebles mostrados:\n• " + string.Join("\n• ", state.PropiedadesMostradas)
             : "";
 
         var mensaje =
-            $"📩 *Nuevo lead por WhatsApp*\n" +
-            $"👤 Nombre: {state.NombreContacto ?? "(no indicado)"}\n" +
-            $"📞 Teléfono: +{state.PhoneNumber}\n" +
-            $"🎯 Interés: {c.Tipo ?? "-"}\n" +
-            $"📍 Zona: {c.Zona ?? "-"}\n" +
-            $"💰 Presupuesto: {c.RangoPrecio ?? "-"}\n" +
-            $"🛏️ Habitaciones: {c.Habitaciones ?? "-"}" +
+            "📩 *Nuevo lead por WhatsApp*\n" +
+            $"👤 {Sinombre(state.NombreContacto)}\n" +
+            $"📞 +{state.PhoneNumber}\n" +
+            $"🗂️ Solicitud: {Flujo.Etiqueta(state.FlujoActivo)}\n" +
+            respuestas +
             inmuebles +
             $"\n\n➡️ Escríbele a +{state.PhoneNumber} para continuar la atención.";
 
@@ -62,4 +59,6 @@ public class NotificationService : INotificationService
             }
         }
     }
+
+    private static string Sinombre(string? n) => string.IsNullOrWhiteSpace(n) ? "(sin nombre)" : n;
 }

@@ -80,46 +80,43 @@ public class PropertyCatalogService : IPropertyCatalogService
 
         // Tipo: exacto; los inmuebles cuyo tipo no se pudo deducir no se descartan.
         if (criteria.Tipo is "arriendo" or "venta")
-        {
             q = q.Where(p => p.Tipo == criteria.Tipo || string.IsNullOrEmpty(p.Tipo));
-        }
 
-        var porTipo = q.ToList();
+        var lista = q.ToList();
 
-        // Habitaciones: mínimo pedido. Si no queda ninguno, se relaja el filtro.
-        var min = HabitacionesMinimas(criteria.Habitaciones);
-        if (min > 0)
+        // Arriendo: personas ≤ capacidad (regla n8n: capacidad = habitaciones × 2).
+        if (criteria.Personas is int personas && personas > 0)
+            lista = Relajar(lista, p => p.CapacidadMaxima >= personas);
+
+        // Arriendo: mascotas ≤ máximo del inmueble.
+        if (criteria.Mascotas is int mascotas && mascotas > 0)
+            lista = Relajar(lista, p => p.MascotasMaximas >= mascotas);
+
+        // Compra: el tipo de inmueble aparece como palabra en el título.
+        if (!string.IsNullOrWhiteSpace(criteria.TipoInmueble) && criteria.TipoInmueble != "otro")
         {
-            var porHab = porTipo.Where(p => p.Habitaciones >= min).ToList();
-            q = porHab.Count > 0 ? porHab : porTipo;
-        }
-        else
-        {
-            q = porTipo;
+            var kw = Texto.Normalizar(criteria.TipoInmueble);
+            lista = Relajar(lista, p => Texto.Normalizar(p.Titulo).Contains(kw));
         }
 
-        // Zona: filtro suave contra el título. Si nadie coincide, no descarta nada.
+        // Zona: filtro suave contra el título.
         if (!string.IsNullOrWhiteSpace(criteria.Zona) &&
-            !string.Equals(criteria.Zona, "cualquiera", StringComparison.OrdinalIgnoreCase))
+            !Texto.Normalizar(criteria.Zona).Contains("cualquier"))
         {
-            var zonaNorm = Normalizar(criteria.Zona);
-            if (zonaNorm.Length >= 3)
-            {
-                var porZona = q.Where(p => Normalizar(p.Titulo).Contains(zonaNorm)).ToList();
-                if (porZona.Count > 0) q = porZona;
-            }
+            var zona = Texto.Normalizar(criteria.Zona);
+            if (zona.Length >= 3)
+                lista = Relajar(lista, p => Texto.Normalizar(p.Titulo).Contains(zona));
         }
 
-        return q.Take(3).ToList();
+        return lista.Take(3).ToList();
     }
 
-    private static int HabitacionesMinimas(string? h) => h switch
+    /// <summary>Aplica el filtro; si deja la lista vacía, lo ignora (catálogo pequeño).</summary>
+    private static List<Property> Relajar(List<Property> lista, Func<Property, bool> filtro)
     {
-        "1" => 1,
-        "2" => 2,
-        "3+" or "3" or "4" or "4+" or "5" => 3,
-        _ => 0
-    };
+        var filtrada = lista.Where(filtro).ToList();
+        return filtrada.Count > 0 ? filtrada : lista;
+    }
 
     private async Task<IReadOnlyList<Property>> ObtenerCatalogoAsync()
     {
@@ -222,7 +219,7 @@ public class PropertyCatalogService : IPropertyCatalogService
 
     private static string DeducirTipo(string titulo)
     {
-        var t = Normalizar(titulo);
+        var t = Texto.Normalizar(titulo);
         if (t.Contains("arriend") || t.Contains("arrienda") || t.Contains("alquil") || t.Contains("renta"))
             return "arriendo";
         if (t.Contains("vend") || t.Contains("venta"))
@@ -234,17 +231,5 @@ public class PropertyCatalogService : IPropertyCatalogService
     {
         var partes = url.Trim().TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
         return partes.Length > 0 ? partes[^1] : url;
-    }
-
-    private static string Normalizar(string s)
-    {
-        s = s.ToLowerInvariant().Trim();
-        var sb = new StringBuilder(s.Length);
-        foreach (var c in s.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                sb.Append(c);
-        }
-        return sb.ToString();
     }
 }
