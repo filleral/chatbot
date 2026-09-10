@@ -9,7 +9,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    region: oregon
+    region: ohio          # misma zona que Neon (us-east-2) para menor latencia con la BD
     healthCheckPath: /
     autoDeploy: true
     envVars:
