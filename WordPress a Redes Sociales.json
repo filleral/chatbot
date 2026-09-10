@@ -1,0 +1,560 @@
+{
+  "name": "WordPress a Redes Sociales",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wordpress-new-post",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3789157a-dfd4-4890-8c4a-bd66638ee5ca",
+      "name": "WordPress Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        352
+      ],
+      "webhookId": "1123064b-09a3-402e-b99d-75be3a13d8cf"
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "=526644653870463",
+        "recipientPhoneNumber": "+57350 7633867",
+        "textBody": "=📢 NUEVA PUBLICACION EN LA WEB\n\nTítulo: {{ $(\"Extraer datos del post\").item.json.titulo }}\n\n{{ $(\"Extraer datos del post\").item.json.contenido }}\n\nVer artículo completo:\n{{ $(\"Extraer datos del post\").item.json.url }}\n\nFecha: {{ $(\"Extraer datos del post\").item.json.fecha }}",
+        "additionalFields": {}
+      },
+      "id": "9f9b968a-1f0b-414c-a217-cdc0f8a35ea2",
+      "name": "Notificar WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        2704,
+        208
+      ],
+      "webhookId": "c8f0463b-7c1f-468c-a7e7-0df503c5339d",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "D04uY49aAOu3cGkH",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Publicado correctamente\" } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "20693082-ca30-49bd-a262-b8f40ad60d7e",
+      "name": "Responder al Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2928,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "var input = items[0].json;\nvar body = input.body || input;\nvar post = body.post || body;\nvar postId = post.ID || post.id || body.post_id || input.post_id || '';\nvar postStatus = post.post_status || body.post_status || '';\nvar titulo = post.post_title || body.post_title || '';\nvar skip = false;\n\nif (postStatus !== 'publish') { skip = true; }\nif (!titulo || titulo === 'Auto Draft' || titulo === 'Borrador automatico' || titulo === 'Borrador automático') { skip = true; }\n\nvar contenido = '';\nvar url = '';\nvar imagen = '';\nvar fecha = '';\n\nif (!skip) {\n  contenido = (post.post_content || post.post_excerpt || body.post_content || '').replace(/<[^>]+>/g, '').replace(/\\[.*?\\]/g, '').trim().substring(0, 300);\n  url = post.guid || post.permalink || body.permalink || '';\n  imagen = post.featured_image_url || post.featured_image || body.featured_image_url || '';\n  fecha = new Date().toLocaleDateString('es-CO', {timeZone: 'America/Bogota'});\n}\n\nreturn [{json: {skip: skip, titulo: titulo, contenido: contenido, url: url, imagen: imagen, fecha: fecha, postStatus: postStatus, postId: postId}}];"
+      },
+      "id": "4a7a8335-2627-429c-b348-b888edb19f7e",
+      "name": "Extraer datos del post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $(\"Extraer datos del post\").item.json.skip }}",
+              "rightValue": "false",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "2",
+              "leftValue": "={{ $(\"Extraer datos del post\").item.json.titulo }}",
+              "rightValue": "Nueva publicacion",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3",
+              "leftValue": "={{ $(\"Extraer datos del post\").item.json.postStatus }}",
+              "rightValue": "publish",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "129e6c65-fa13-4a40-b335-a660ffd50144",
+      "name": "Filtro Anti-Duplicados",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1136,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://bienesraiceswhite.co/wp-json/wp/v2/em_portfolio/{{ $json.postId }}?_fields=id,title,gallery_urls",
+        "options": {}
+      },
+      "id": "9ea45576-2c7e-4ec8-b6ee-d7eaa8de9bed",
+      "name": "Obtener Imagen WP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        688,
+        352
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "var data = $input.item.json;\nvar urls = data.gallery_urls || [];\n\nvar out = {};\nout.imageUrls = urls;\nout.totalImages = urls.length;\nout.titulo = $('Extraer datos del post').item.json.titulo;\nout.contenido = $('Extraer datos del post').item.json.contenido;\nout.url = $('Extraer datos del post').item.json.url;\nout.postStatus = $('Extraer datos del post').item.json.postStatus;\nout.skip = $('Extraer datos del post').item.json.skip;\nout.fecha = $('Extraer datos del post').item.json.fecha;\n\nreturn [{json: out}];"
+      },
+      "id": "f49fc467-c207-458f-9bd8-20ade2d13dcd",
+      "name": "Extraer URLs imágenes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "imageUrls",
+        "options": {}
+      },
+      "id": "1131e751-47ff-441e-8fc6-95a5bb695bdd",
+      "name": "Split Image URLs",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/417059049062092/photos",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"url\": \"{{ $json.imageUrls }}\",\n  \"published\": false,\n  \"access_token\": \"EAANl0O6EKvEBRoFPzJHv7ZActw5nwnHHzZB4OBWtMRMTnBhHMslv8AAaKgSL5FgzZBtj8ZCX7mF5rkdK0xh8M6boTDsuCGpKDs5tdVVWQ0DXzL4ZB5PFFNSnoepROsAZC3jZBuT2lgLePzSsX7EnSlp1SKCUbHK5Y5ArZCL8WatqgSICleD5KZCZCTSTmsOfzAflmD8ko9QZCdQrTzOETWFN7jN\"\n}",
+        "options": {}
+      },
+      "id": "18778e5d-a222-4825-85a7-50922ffc13eb",
+      "name": "Subir Fotos FB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1808,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "var items = $input.all();\nvar mediaIds = [];\nvar limit = Math.min(items.length, 10);\nfor (var i = 0; i < limit; i++) {\n  mediaIds.push({media_fbid: items[i].json.id});\n}\nvar out = {};\nout.attached_media = JSON.stringify(mediaIds);\nout.titulo = $('Extraer datos del post').item.json.titulo;\nout.contenido = $('Extraer datos del post').item.json.contenido;\nout.url = $('Extraer datos del post').item.json.url;\nreturn [{json: out}];"
+      },
+      "id": "0ab581e2-d385-4db8-94f4-219f124fadaf",
+      "name": "Agrupar IDs fotos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/417059049062092/feed",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.titulo + \"\\n\\n\" + $json.contenido + \"\\n\\nVer inmueble: \" + $json.url }}"
+            },
+            {
+              "name": "attached_media",
+              "value": "={{ JSON.parse($json.attached_media) }}"
+            },
+            {
+              "name": "access_token",
+              "value": "=EAANl0O6EKvEBRoFPzJHv7ZActw5nwnHHzZB4OBWtMRMTnBhHMslv8AAaKgSL5FgzZBtj8ZCX7mF5rkdK0xh8M6boTDsuCGpKDs5tdVVWQ0DXzL4ZB5PFFNSnoepROsAZC3jZBuT2lgLePzSsX7EnSlp1SKCUbHK5Y5ArZCL8WatqgSICleD5KZCZCTSTmsOfzAflmD8ko9QZCdQrTzOETWFN7jN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0869b91b-6614-4ce9-8d61-cd630ab337d2",
+      "name": "Publicar Post Facebook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2256,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "imageUrls",
+        "options": {}
+      },
+      "id": "8a39249f-68a2-4ecc-bd9d-9538fc6f4438",
+      "name": "Split Image URLs IG",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/17841411886661916/media",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "image_url",
+              "value": "={{ $json.imageUrls }}"
+            },
+            {
+              "name": "is_carousel_item",
+              "value": "=true"
+            },
+            {
+              "name": "access_token",
+              "value": "EAANl0O6EKvEBRoFPzJHv7ZActw5nwnHHzZB4OBWtMRMTnBhHMslv8AAaKgSL5FgzZBtj8ZCX7mF5rkdK0xh8M6boTDsuCGpKDs5tdVVWQ0DXzL4ZB5PFFNSnoepROsAZC3jZBuT2lgLePzSsX7EnSlp1SKCUbHK5Y5ArZCL8WatqgSICleD5KZCZCTSTmsOfzAflmD8ko9QZCdQrTzOETWFN7jN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "374684fa-4549-4f08-8528-7ef82535ce6b",
+      "name": "Subir Fotos IG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1584,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "var items = $input.all();\nvar containerIds = [];\nvar limit = Math.min(items.length, 10);\nfor (var i = 0; i < limit; i++) {\n  containerIds.push(items[i].json.id);\n}\nvar out = {};\nout.children = containerIds.join(',');\nout.titulo = $('Extraer datos del post').item.json.titulo;\nout.contenido = $('Extraer datos del post').item.json.contenido;\nout.url = $('Extraer datos del post').item.json.url;\nreturn [{json: out}];"
+      },
+      "id": "70894bf9-20df-41e5-9911-e5f25dec6184",
+      "name": "Agrupar IDs IG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/17841411886661916/media",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "media_type",
+              "value": "=CAROUSEL"
+            },
+            {
+              "name": "children",
+              "value": "={{ $json.children }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.titulo + \"\\n\\n\" + $json.contenido + \"\\n\\nVer inmueble: \" + $json.url }}"
+            },
+            {
+              "name": "access_token",
+              "value": "EAANl0O6EKvEBRoFPzJHv7ZActw5nwnHHzZB4OBWtMRMTnBhHMslv8AAaKgSL5FgzZBtj8ZCX7mF5rkdK0xh8M6boTDsuCGpKDs5tdVVWQ0DXzL4ZB5PFFNSnoepROsAZC3jZBuT2lgLePzSsX7EnSlp1SKCUbHK5Y5ArZCL8WatqgSICleD5KZCZCTSTmsOfzAflmD8ko9QZCdQrTzOETWFN7jN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c28a057a-5e59-4713-b5a8-0a20cb8b829f",
+      "name": "Crear Carrusel IG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2032,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/17841411886661916/media_publish",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"creation_id\": \"{{ $json.id }}\",\n  \"access_token\": \"EAANl0O6EKvEBRoFPzJHv7ZActw5nwnHHzZB4OBWtMRMTnBhHMslv8AAaKgSL5FgzZBtj8ZCX7mF5rkdK0xh8M6boTDsuCGpKDs5tdVVWQ0DXzL4ZB5PFFNSnoepROsAZC3jZBuT2lgLePzSsX7EnSlp1SKCUbHK5Y5ArZCL8WatqgSICleD5KZCZCTSTmsOfzAflmD8ko9QZCdQrTzOETWFN7jN\"\n}",
+        "options": {}
+      },
+      "id": "8b93cefe-7e1d-4f95-bdae-1a6ea6016429",
+      "name": "Publicar Carrusel IG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2256,
+        496
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ebb1617b-8fad-4b2d-b435-b28981cfdbf9",
+      "name": "Combine Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2480,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WordPress Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extraer datos del post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Responder al Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer datos del post": {
+      "main": [
+        [
+          {
+            "node": "Obtener Imagen WP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtro Anti-Duplicados": {
+      "main": [
+        [
+          {
+            "node": "Split Image URLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Image URLs IG",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder al Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Imagen WP": {
+      "main": [
+        [
+          {
+            "node": "Extraer URLs imágenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer URLs imágenes": {
+      "main": [
+        [
+          {
+            "node": "Filtro Anti-Duplicados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Image URLs": {
+      "main": [
+        [
+          {
+            "node": "Subir Fotos FB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir Fotos FB": {
+      "main": [
+        [
+          {
+            "node": "Agrupar IDs fotos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar IDs fotos": {
+      "main": [
+        [
+          {
+            "node": "Publicar Post Facebook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar Post Facebook": {
+      "main": [
+        [
+          {
+            "node": "Combine Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Image URLs IG": {
+      "main": [
+        [
+          {
+            "node": "Subir Fotos IG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir Fotos IG": {
+      "main": [
+        [
+          {
+            "node": "Agrupar IDs IG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar IDs IG": {
+      "main": [
+        [
+          {
+            "node": "Crear Carrusel IG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear Carrusel IG": {
+      "main": [
+        [
+          {
+            "node": "Publicar Carrusel IG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publicar Carrusel IG": {
+      "main": [
+        [
+          {
+            "node": "Combine Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine Results": {
+      "main": [
+        [
+          {
+            "node": "Notificar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3d1f806b-6a0b-4565-80e7-562edae174eb",
+  "meta": {
+    "instanceId": "46a9b9e2723ea27031000036474553bf27e56e98a91a579eaea031eb3f97c1e4"
+  },
+  "id": "klgTnKLgySWfEkBp",
+  "tags": []
+}

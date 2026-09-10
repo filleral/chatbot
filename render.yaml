@@ -27,6 +27,18 @@ services:
         sync: false
       - key: Dashboard__Password
         sync: false
+      - key: Email__SmtpHost
+        sync: false
+      - key: Email__SmtpPort
+        value: "587"
+      - key: Email__User
+        sync: false
+      - key: Email__Password
+        sync: false
+      - key: Email__From
+        sync: false
+      - key: Email__To
+        sync: false
       - key: PropertyScraper__ListingUrl
         value: https://bienesraiceswhite.co/inmuebles/
       - key: PropertyScraper__MaxPages

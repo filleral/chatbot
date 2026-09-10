@@ -163,15 +163,20 @@ dotnet run
 Queda escuchando en `http://localhost:8080/webhook`. Para que Meta le llegue durante pruebas,
 expón el puerto con un túnel (Cloudflare Tunnel, VS Code Port Forwarding, ngrok…).
 
-## 7. Notificación al asesor: alternativas
+## 7. Notificación al asesor
 
-El starter usa la opción más simple: el propio bot le manda un WhatsApp a cada número de `WhatsApp:AdvisorPhoneNumber` (uno o varios, separados por coma) con los datos del lead y los inmuebles que se le mostraron. No necesitas contratar nada extra. El lead también queda en la tabla `leads` de PostgreSQL.
+Cuando un flujo termina, `Services/NotificationService.cs` avisa por **dos canales** (y guarda el
+lead en la tabla `leads`):
 
-Si prefieres otro canal, en `Services/NotificationService.cs` puedes agregar, junto al WhatsApp o en vez de él:
+1. **WhatsApp** a cada número de `WhatsApp__AdvisorPhoneNumber`. ⚠️ Meta **solo entrega** este
+   mensaje si ese número le escribió al bot en las últimas 24 h (error `131047` si no). Sirve para
+   asesores que están en contacto frecuente, no para alguien que nunca ha escrito.
+2. **Correo** a `Email__To` (SMTP genérico — Gmail con contraseña de aplicación, Brevo, Zoho…).
+   Sin la restricción de 24 h: es el canal fiable. Si no configuras el SMTP, se omite.
 
-- **Correo**: SendGrid o Brevo (ambos con capa gratuita) — útil si el equipo comercial vive en el correo.
-- **Microsoft Teams / Slack / Discord**: un webhook entrante del canal — un simple `HttpClient.PostAsync` con el mensaje en JSON.
-- **Guardar el lead y que un dashboard lo muestre**: ya se guarda en la tabla `leads` de PostgreSQL; se podría montar una vista sencilla más adelante.
+Los dos envíos quedan en `message_log`, así que en `/panel/errores` ves si alguno falló y por qué.
+Otras alternativas fáciles de añadir en `NotificationService`: webhook de Slack/Discord/Teams,
+o simplemente que la coordinación mire `/panel/leads`.
 
 ## 8. Panel de control (`/panel`)
 
@@ -216,7 +221,8 @@ whatsapp-bot-inmobiliaria/
         ├── PostgresMessageLog.cs               Bitácora de mensajes (alimenta el panel)
         ├── PostgresDbInitializer.cs            Crea/actualiza las tablas al arrancar
         ├── PanelData.cs                        Consultas de lectura del panel
-        └── NotificationService.cs              Aviso al asesor humano (WhatsApp, uno o varios números)
+        ├── SmtpEmailSender.cs                  Envío del aviso de lead por correo (SMTP)
+        └── NotificationService.cs              Aviso al asesor: WhatsApp + correo, con bitácora
 ```
 
 > La carpeta se llama `src/WhatsappBot.Functions/` por herencia de una versión anterior sobre Azure

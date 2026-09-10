@@ -19,6 +19,7 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 // ---- Bot ----
 builder.Services.AddSingleton<IMessageLog, PostgresMessageLog>();
 builder.Services.AddSingleton<IDbInitializer, PostgresDbInitializer>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHttpClient<IWhatsAppService, WhatsAppService>();
 builder.Services.AddHttpClient<IPropertyCatalogService, PropertyCatalogService>();
 builder.Services.AddScoped<IConversationStateService, PostgresConversationStateService>();

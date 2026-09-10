@@ -117,6 +117,30 @@ Tu URL queda como `https://whatsapp-bot-inmobiliaria.onrender.com` (Render te la
 - `…/webhook` → lo que registras en Meta.
 - `…/panel` → el panel de control (pide el `Dashboard__Email` / `Dashboard__Password`).
 
+### 4.1 Aviso de leads por correo (recomendado)
+
+El aviso por WhatsApp al asesor **solo llega si ese número le escribió al bot en las últimas
+24 h** (regla de Meta, error `131047`). Para que la coordinación reciba *siempre* el lead, se
+manda también por correo. Añade en Render:
+
+| Key | Value (ejemplo con Gmail / Google Workspace) |
+|---|---|
+| `Email__SmtpHost` | `smtp.gmail.com` |
+| `Email__SmtpPort` | `587` |
+| `Email__User` | `gerencia@bienesraiceswhite.co` |
+| `Email__Password` | una **contraseña de aplicación** (16 letras) |
+| `Email__From` | `gerencia@bienesraiceswhite.co` |
+| `Email__To` | `gerencia@bienesraiceswhite.co` (varios separados por coma) |
+
+**Contraseña de aplicación de Gmail:** cuenta de Google → *Seguridad* → activa la **verificación
+en dos pasos** → *Contraseñas de aplicaciones* → crea una para "Correo" → copia las 16 letras.
+
+**¿El correo no es de Google?** Usa [Brevo](https://www.brevo.com) (gratis, 300/día):
+`Email__SmtpHost=smtp-relay.brevo.com`, puerto `587`, `Email__User` y `Email__Password` = los
+que te da Brevo en *SMTP & API*. Verifica el remitente `Email__From` en el panel de Brevo.
+
+Si dejas estas variables vacías, el bot funciona igual pero solo avisa por WhatsApp.
+
 ---
 
 ## 5. Verifica que responde (sin Meta todavía)
