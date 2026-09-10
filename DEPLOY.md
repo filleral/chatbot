@@ -236,7 +236,55 @@ gratis ≈ suficiente para tenerlo encendido todo el mes.)
 
 ---
 
-## 10. Problemas comunes
+## 10. Publicar inmuebles en Facebook + Instagram (opcional)
+
+Cuando se publica un inmueble en WordPress, el bot lo publica en la página de Facebook y en
+Instagram (carrusel con todas las fotos), igual que el workflow "WordPress a Redes Sociales" de n8n.
+
+### 10.1 Token de Meta con permisos de páginas e Instagram
+
+Distinto al de WhatsApp. Lo más estable: un **usuario del sistema** (Business Settings →
+*Usuarios del sistema* → uno nuevo, p. ej. "redes"):
+
+1. **Asignar activos** → la **página de Facebook** y la **cuenta de Instagram** de la inmobiliaria, con control total.
+2. **Generar token** → caducidad **Nunca** → permisos:
+   `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`,
+   `instagram_basic`, `instagram_content_publish`, `business_management`.
+3. Copia el token (`EAA...`).
+
+### 10.2 IDs de la página y de Instagram
+
+- **Facebook Page ID:** en la página → *Información* → abajo del todo, o con
+  `https://graph.facebook.com/v21.0/me/accounts?access_token=TU_TOKEN`. n8n usaba `417059049062092`.
+- **Instagram User ID:** `https://graph.facebook.com/v21.0/{PAGE_ID}?fields=instagram_business_account&access_token=TU_TOKEN`.
+  n8n usaba `17841411886661916`.
+
+### 10.3 Variables en Render
+
+| Key | Value |
+|---|---|
+| `Social__WebhookSecret` | un texto que inventes (va igual en WordPress) |
+| `Social__MetaAccessToken` | el token `EAA...` del paso 10.1 |
+| `Social__FacebookPageId` | el Page ID |
+| `Social__InstagramUserId` | el Instagram User ID |
+| `Social__WpBaseUrl` | `https://bienesraiceswhite.co` |
+| `Social__PostType` | `em_portfolio` |
+
+### 10.4 Avisar desde WordPress
+
+Sube `wordpress/publicar-inmuebles-en-redes.php` a `wp-content/mu-plugins/` (se activa solo), o
+pega su contenido en el `functions.php` del tema hijo. Antes, cambia dentro del archivo:
+`BOT_REDES_SECRET` = el mismo `Social__WebhookSecret`.
+
+### 10.5 Probar
+
+- En `/panel/publicaciones` hay un campo para publicar un inmueble a mano (por id o URL).
+- O publica un inmueble de prueba en WordPress y míralo aparecer en el historial del panel,
+  con enlaces al post de Facebook y al de Instagram.
+
+---
+
+## 11. Problemas comunes
 
 | Síntoma | Causa / arreglo |
 |---|---|
@@ -245,3 +293,5 @@ gratis ≈ suficiente para tenerlo encendido todo el mes.)
 | Error de conexión a la base | Cadena de Neon mal pegada. Usa el host `-pooler` y `SSL Mode=Require;Trust Server Certificate=true`. |
 | `git push` pide contraseña y falla | GitHub ya no acepta contraseña: usa un *Personal Access Token* (permiso `repo`) como contraseña. |
 | La primera respuesta tras un rato tarda ~1 min | El servicio estaba dormido. Aplica el Paso 9. |
+| Redes: `Invalid OAuth access token` | El `Social__MetaAccessToken` venció o le faltan permisos (paso 10.1). |
+| Redes: Instagram falla y Facebook no | IG exige mínimo 1 foto y máximo 10; las URLs de las fotos deben ser públicas (lo son en WordPress). |

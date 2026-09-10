@@ -65,6 +65,28 @@ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS ix_msglog_phone   ON message_log (phone_number, created_at_utc);
 CREATE INDEX IF NOT EXISTS ix_msglog_created ON message_log (created_at_utc DESC);
+
+CREATE TABLE IF NOT EXISTS social_posts (
+    post_id        bigint      PRIMARY KEY,
+    titulo         text,
+    link           text,
+    imagenes       int         NOT NULL DEFAULT 0,
+    fb_post_id     text,
+    fb_url         text,
+    ig_id          text,
+    ig_url         text,
+    estado         text        NOT NULL DEFAULT 'pendiente',
+    error          text,
+    created_at_utc timestamptz NOT NULL DEFAULT now(),
+    updated_at_utc timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_social_updated ON social_posts (updated_at_utc DESC);
+
+CREATE TABLE IF NOT EXISTS app_config (
+    clave          text        PRIMARY KEY,
+    valor          text,
+    updated_at_utc timestamptz NOT NULL DEFAULT now()
+);
 ";
 
     private readonly string _connectionString;

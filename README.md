@@ -197,6 +197,20 @@ actividad del bot, sin abrir la base de datos.
 Para que el panel tenga transcripciones, el bot ahora **registra cada mensaje** (entrante y saliente,
 con el resultado del envío) en la tabla `message_log`.
 
+## 8.b WordPress → Facebook + Instagram
+
+Además del chatbot, la app trae el segundo automatismo que había en n8n: cuando se **publica un
+inmueble** en WordPress (`em_portfolio`), un `POST` a `/wordpress/nuevo-inmueble` hace que el bot:
+
+1. lea el inmueble del WP REST API (título, contenido, `gallery_urls`),
+2. suba las fotos a la **página de Facebook** y cree la publicación,
+3. cree y publique un **carrusel en Instagram** (o una sola foto),
+4. lo registre en la tabla `social_posts` — visible en **`/panel/publicaciones`** con enlaces a
+   ambas publicaciones, y con un botón para publicar/reintentar a mano.
+
+WordPress avisa con el snippet `wordpress/publicar-inmuebles-en-redes.php`. Config y token en
+`DEPLOY.md` §10.
+
 ## 9. Qué contiene el proyecto
 
 ```
@@ -207,18 +221,21 @@ whatsapp-bot-inmobiliaria/
 ├── .env.example                                Variables de entorno que necesita la app
 ├── .github/workflows/ci.yml                    GitHub Actions: compila y dispara el deploy en Render
 ├── referencia-n8n/                             Workflows viejos de n8n (ignorados por git — tienen tokens)
+├── wordpress/publicar-inmuebles-en-redes.php   Snippet para WordPress que avisa al bot al publicar un inmueble
 ├── sql/schema.sql                              Tablas PostgreSQL (la app también las crea al arrancar)
 └── src/WhatsappBot.Functions/
-    ├── Program.cs                              Arranque, endpoints /webhook y montaje del panel
+    ├── Program.cs                              Arranque, endpoints (/webhook, /wordpress/nuevo-inmueble), panel
     ├── Flow/FlowEngine.cs                      Máquina de estados de los 8 flujos (el "cerebro")
     ├── Models/                                 DTOs de Meta + Property + ConversationState
     ├── Pages/Panel/                            El panel de control (Razor Pages + login)
     └── Services/
         ├── WhatsAppService.cs                  Enviar texto / botones / listas vía Graph API + bitácora
         ├── PropertyCatalogService.cs           Scrapea el listado del sitio (misma lógica que el n8n)
+        ├── SocialPublisher.cs                  Publica el inmueble en Facebook + Instagram
         ├── PostgresConversationStateService.cs Estado de la conversación en PostgreSQL
         ├── PostgresLeadRepository.cs           Guarda los leads en la tabla leads
         ├── PostgresMessageLog.cs               Bitácora de mensajes (alimenta el panel)
+        ├── PostgresSocialPostRepository.cs     Historial de publicaciones en redes
         ├── PostgresDbInitializer.cs            Crea/actualiza las tablas al arrancar
         ├── PanelData.cs                        Consultas de lectura del panel
         ├── EmailSender.cs                      Aviso de lead por correo vía API (Resend / Brevo)

@@ -35,6 +35,18 @@ services:
         sync: false
       - key: Email__FromName
         value: Bienes Raíces White
+      - key: Social__WebhookSecret
+        sync: false
+      - key: Social__MetaAccessToken
+        sync: false
+      - key: Social__FacebookPageId
+        sync: false
+      - key: Social__InstagramUserId
+        sync: false
+      - key: Social__WpBaseUrl
+        value: https://bienesraiceswhite.co
+      - key: Social__PostType
+        value: em_portfolio
       - key: PropertyScraper__ListingUrl
         value: https://bienesraiceswhite.co/inmuebles/
       - key: PropertyScraper__MaxPages

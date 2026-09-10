@@ -27,6 +27,10 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ILeadRepository, PostgresLeadRepository>();
 builder.Services.AddScoped<FlowEngine>();
 
+// ---- WordPress -> Facebook / Instagram ----
+builder.Services.AddScoped<ISocialPostRepository, PostgresSocialPostRepository>();
+builder.Services.AddHttpClient<SocialPublisher>();
+
 // Render (y cualquier proxy TLS) manda el esquema real en X-Forwarded-Proto.
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
 {
@@ -202,4 +206,78 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
     return Results.Ok();
 }).AllowAnonymous();
 
+// POST /wordpress/nuevo-inmueble -> WordPress avisa que se publicó un inmueble; se publica en FB/IG.
+app.MapPost("/wordpress/nuevo-inmueble", async (HttpRequest req, IConfiguration config,
+    SocialPublisher publisher, ILoggerFactory lf) =>
+{
+    var log = lf.CreateLogger("WordPress");
+
+    string body;
+    using (var reader = new StreamReader(req.Body))
+        body = await reader.ReadToEndAsync();
+
+    // Autenticación por secreto compartido (header o campo del body).
+    var esperado = config["Social:WebhookSecret"];
+    var recibido = req.Headers["X-Webhook-Secret"].ToString();
+
+    long postId = 0;
+    if (!string.IsNullOrWhiteSpace(body))
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            postId = LeerPostId(root);
+            if (string.IsNullOrEmpty(recibido) && root.TryGetProperty("secret", out var sc))
+                recibido = sc.GetString() ?? "";
+        }
+        catch (JsonException) { /* body no-JSON; se intenta con query string abajo */ }
+    }
+    if (postId == 0 && long.TryParse(req.Query["post_id"], out var qp)) postId = qp;
+    if (postId == 0 && long.TryParse(req.Query["id"], out var qi)) postId = qi;
+
+    if (!string.IsNullOrWhiteSpace(esperado) && recibido != esperado)
+    {
+        log.LogWarning("Webhook de WordPress con secreto inválido.");
+        return Results.StatusCode(StatusCodes.Status401Unauthorized);
+    }
+
+    if (postId <= 0)
+        return Results.BadRequest(new { error = "Falta el id del post (post_id)." });
+
+    try
+    {
+        var r = await publisher.PublicarAsync(postId);
+        return Results.Ok(new { r.PostId, r.Estado, r.FbUrl, r.IgUrl, r.Imagenes, r.Error });
+    }
+    catch (Exception ex)
+    {
+        log.LogError(ex, "Error publicando el inmueble {PostId} en redes", postId);
+        return Results.Ok(new { postId, estado = "error", error = ex.Message });
+    }
+});
+
 app.Run();
+
+static long LeerPostId(JsonElement root)
+{
+    foreach (var nombre in new[] { "post_id", "postId", "id", "ID" })
+        if (root.TryGetProperty(nombre, out var v) && TryLong(v, out var n)) return n;
+
+    if (root.TryGetProperty("post", out var post))
+        foreach (var nombre in new[] { "ID", "id", "post_id" })
+            if (post.TryGetProperty(nombre, out var v) && TryLong(v, out var n)) return n;
+
+    return 0;
+
+    static bool TryLong(JsonElement e, out long n)
+    {
+        n = 0;
+        return e.ValueKind switch
+        {
+            JsonValueKind.Number => e.TryGetInt64(out n),
+            JsonValueKind.String => long.TryParse(e.GetString(), out n),
+            _ => false
+        };
+    }
+}

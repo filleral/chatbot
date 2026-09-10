@@ -1,0 +1,95 @@
+@page "/panel/publicaciones"
+@model WhatsappBot.Functions.Pages.Panel.PublicacionesModel
+@using WhatsappBot.Functions.Services
+@{ ViewData["Title"] = "Publicaciones"; }
+
+<h1>Publicaciones en redes</h1>
+<p class="sub">Cada inmueble que se publica en la web se manda a Facebook e Instagram automáticamente.</p>
+
+@if (Model.Aviso is not null)
+{
+    <div class="panel"><div class="bd" style="padding:12px 18px;">@Model.Aviso</div></div>
+}
+
+@if (!Model.Configurado)
+{
+    <div class="panel"><div class="bd"><div class="empty">
+        Falta configurar las variables <code>Social__MetaAccessToken</code>,
+        <code>Social__FacebookPageId</code> y/o <code>Social__InstagramUserId</code> en Render
+        (ver <code>DEPLOY.md</code>).
+    </div></div></div>
+}
+
+<div class="panel">
+    <div class="hd">Publicar un inmueble a mano</div>
+    <div class="bd" style="padding:14px 18px;">
+        <form method="post" asp-page-handler="Publicar" class="filters">
+            <input type="text" name="entrada" placeholder="id (46161) o URL del inmueble" style="min-width:320px;" required />
+            <button class="btn primary" type="submit">Publicar ahora</button>
+        </form>
+        <p class="muted" style="margin:10px 0 0;font-size:12px;">
+            Fuerza la publicación aunque ya se haya publicado antes. Puede tardar ~20–40 s (Instagram procesa las fotos).
+        </p>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="hd"><span>Historial</span><span class="muted">@Model.Posts.Count</span></div>
+    <div class="bd">
+        @if (Model.Error is not null)
+        {
+            <div class="empty">Error: @Model.Error</div>
+        }
+        else if (Model.Posts.Count == 0)
+        {
+            <div class="empty">Todavía no se ha publicado ningún inmueble.</div>
+        }
+        else
+        {
+            <div class="tablewrap">
+                <table>
+                    <thead>
+                        <tr><th>Fecha</th><th>Inmueble</th><th>Fotos</th><th>Facebook</th><th>Instagram</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var p in Model.Posts)
+                    {
+                        <tr>
+                            <td class="mono nowrap muted">@PanelData.ToBogota(p.ActualizadoUtc).ToString("dd/MM/yy HH:mm")</td>
+                            <td style="max-width:320px;">
+                                @if (!string.IsNullOrWhiteSpace(p.Link))
+                                { <a href="@p.Link" target="_blank">@(string.IsNullOrWhiteSpace(p.Titulo) ? $"#{p.PostId}" : p.Titulo)</a> }
+                                else
+                                { @(string.IsNullOrWhiteSpace(p.Titulo) ? $"#{p.PostId}" : p.Titulo) }
+                                <div class="muted mono" style="font-size:11px;">#@p.PostId</div>
+                            </td>
+                            <td>@p.Imagenes</td>
+                            <td>@(string.IsNullOrWhiteSpace(p.FbUrl) ? Html.Raw("<span class='muted'>—</span>") : Html.Raw($"<a href='{p.FbUrl}' target='_blank'>ver</a>"))</td>
+                            <td>@(string.IsNullOrWhiteSpace(p.IgUrl) ? Html.Raw("<span class='muted'>—</span>") : Html.Raw($"<a href='{p.IgUrl}' target='_blank'>ver</a>"))</td>
+                            <td>
+                                @switch (p.Estado)
+                                {
+                                    case "publicado": <span class="badge ok">publicado</span> break;
+                                    case "parcial": <span class="badge warn">parcial</span> break;
+                                    case "omitido": <span class="badge">omitido</span> break;
+                                    default: <span class="badge err">error</span> break;
+                                }
+                                @if (!string.IsNullOrWhiteSpace(p.Error))
+                                {
+                                    <div class="muted" style="font-size:11px;max-width:260px;">@p.Error</div>
+                                }
+                            </td>
+                            <td class="nowrap">
+                                <form method="post" asp-page-handler="Publicar" style="display:inline">
+                                    <input type="hidden" name="entrada" value="@p.PostId" />
+                                    <button class="btn sm" type="submit">Reintentar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
