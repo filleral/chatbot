@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Configuración local con secretos — NUNCA subir
+local.settings.json
+appsettings.Development.json
+appsettings.Local.json
+.env

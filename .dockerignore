@@ -1,0 +1,9 @@
+**/bin
+**/obj
+**/.vs
+**/.git
+**/*.user
+local.settings.json
+appsettings.Development.json
+.env
+*.md

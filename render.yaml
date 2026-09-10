@@ -1,0 +1,31 @@
+# Blueprint de Render. Al conectar este repo en https://dashboard.render.com/blueprints
+# crea el servicio web automáticamente. Los valores marcados sync:false se ponen a mano
+# en Render → el servicio → Environment (para no dejar secretos en el repo).
+
+services:
+  - type: web
+    name: whatsapp-bot-inmobiliaria
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: WhatsApp__VerifyToken
+        sync: false
+      - key: WhatsApp__AccessToken
+        sync: false
+      - key: WhatsApp__PhoneNumberId
+        sync: false
+      - key: WhatsApp__AdvisorPhoneNumber
+        sync: false
+      - key: PostgresConnectionString
+        sync: false
+      - key: PropertyScraper__ListingUrl
+        value: https://bienesraiceswhite.co/inmuebles/
+      - key: PropertyScraper__MaxPages
+        value: "3"
+      - key: PropertyScraper__CacheMinutes
+        value: "10"
