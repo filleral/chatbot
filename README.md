@@ -171,8 +171,8 @@ lead en la tabla `leads`):
 1. **WhatsApp** a cada número de `WhatsApp__AdvisorPhoneNumber`. ⚠️ Meta **solo entrega** este
    mensaje si ese número le escribió al bot en las últimas 24 h (error `131047` si no). Sirve para
    asesores que están en contacto frecuente, no para alguien que nunca ha escrito.
-2. **Correo** a `Email__To` (SMTP genérico — Gmail con contraseña de aplicación, Brevo, Zoho…).
-   Sin la restricción de 24 h: es el canal fiable. Si no configuras el SMTP, se omite.
+2. **Correo** a `Email__To` vía API HTTPS (Resend o Brevo — Render bloquea el SMTP).
+   Sin la restricción de 24 h: es el canal fiable. Si no configuras `Email__ApiKey`, se omite.
 
 Los dos envíos quedan en `message_log`, así que en `/panel/errores` ves si alguno falló y por qué.
 Otras alternativas fáciles de añadir en `NotificationService`: webhook de Slack/Discord/Teams,
@@ -221,7 +221,7 @@ whatsapp-bot-inmobiliaria/
         ├── PostgresMessageLog.cs               Bitácora de mensajes (alimenta el panel)
         ├── PostgresDbInitializer.cs            Crea/actualiza las tablas al arrancar
         ├── PanelData.cs                        Consultas de lectura del panel
-        ├── SmtpEmailSender.cs                  Envío del aviso de lead por correo (SMTP)
+        ├── EmailSender.cs                      Aviso de lead por correo vía API (Resend / Brevo)
         └── NotificationService.cs              Aviso al asesor: WhatsApp + correo, con bitácora
 ```
 

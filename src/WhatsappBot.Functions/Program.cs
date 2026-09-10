@@ -19,7 +19,7 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 // ---- Bot ----
 builder.Services.AddSingleton<IMessageLog, PostgresMessageLog>();
 builder.Services.AddSingleton<IDbInitializer, PostgresDbInitializer>();
-builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHttpClient<IEmailSender, EmailSender>();
 builder.Services.AddHttpClient<IWhatsAppService, WhatsAppService>();
 builder.Services.AddHttpClient<IPropertyCatalogService, PropertyCatalogService>();
 builder.Services.AddScoped<IConversationStateService, PostgresConversationStateService>();
@@ -132,17 +132,25 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
     {
         var sp = req.HttpContext.RequestServices;
         var msgLog = sp.GetRequiredService<IMessageLog>();
+        var config = sp.GetRequiredService<IConfiguration>();
+
+        // Números de asesor: sus fallos de entrega (ventana de 24 h) son esperados y van por correo,
+        // así que no ensucian la página de Errores.
+        var asesores = (config["WhatsApp:AdvisorPhoneNumber"] ?? "")
+            .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(n => n.TrimStart('+'))
+            .ToHashSet();
 
         // Estados de entrega de los mensajes que el bot envió (sent/delivered/read/failed).
         foreach (var estado in lotes.SelectMany(v => v.Statuses ?? new List<WhatsAppStatus>()))
         {
-            if (estado.Status is "failed")
+            if (estado.Status is "failed" && !asesores.Contains(estado.RecipientId.TrimStart('+')))
             {
                 var e = estado.Errors?.FirstOrDefault();
                 var detalle = e is null
                     ? "Meta reportó el envío como fallido."
                     : $"[{e.Code}] {e.Title}: {e.Message ?? e.ErrorData?.Details}";
-                await msgLog.RegistrarSalienteAsync(estado.RecipientId, "estado", "❌ no entregado", false, detalle);
+                await msgLog.RegistrarSalienteAsync(estado.RecipientId, "estado", "❌ no entregado al cliente", false, detalle);
             }
         }
 

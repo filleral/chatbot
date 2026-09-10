@@ -121,25 +121,41 @@ Tu URL queda como `https://whatsapp-bot-inmobiliaria.onrender.com` (Render te la
 
 El aviso por WhatsApp al asesor **solo llega si ese número le escribió al bot en las últimas
 24 h** (regla de Meta, error `131047`). Para que la coordinación reciba *siempre* el lead, se
-manda también por correo. Añade en Render:
+manda también por correo — con una API HTTPS, porque **Render bloquea el SMTP**.
 
-| Key | Value (ejemplo con Gmail / Google Workspace) |
-|---|---|
-| `Email__SmtpHost` | `smtp.gmail.com` |
-| `Email__SmtpPort` | `587` |
-| `Email__User` | `gerencia@bienesraiceswhite.co` |
-| `Email__Password` | una **contraseña de aplicación** (16 letras) |
-| `Email__From` | `gerencia@bienesraiceswhite.co` |
-| `Email__To` | `gerencia@bienesraiceswhite.co` (varios separados por coma) |
+**Opción A · Resend** (la más rápida, https://resend.com — gratis, sin tarjeta):
 
-**Contraseña de aplicación de Gmail:** cuenta de Google → *Seguridad* → activa la **verificación
-en dos pasos** → *Contraseñas de aplicaciones* → crea una para "Correo" → copia las 16 letras.
+1. Regístrate con `gerencia@bienesraiceswhite.co`.
+2. *API Keys* → **Create API Key** → copia la clave (`re_...`).
+3. En Render añade:
 
-**¿El correo no es de Google?** Usa [Brevo](https://www.brevo.com) (gratis, 300/día):
-`Email__SmtpHost=smtp-relay.brevo.com`, puerto `587`, `Email__User` y `Email__Password` = los
-que te da Brevo en *SMTP & API*. Verifica el remitente `Email__From` en el panel de Brevo.
+   | Key | Value |
+   |---|---|
+   | `Email__ApiKey` | la clave `re_...` |
+   | `Email__To` | `gerencia@bienesraiceswhite.co` |
 
-Si dejas estas variables vacías, el bot funciona igual pero solo avisa por WhatsApp.
+   Sin verificar dominio, Resend solo deja enviar **a tu propio correo** (que es justo el
+   destinatario aquí) desde `onboarding@resend.dev`. Si luego quieres enviar a más gente o
+   desde `@bienesraiceswhite.co`, verifica el dominio en Resend (3 registros DNS) y pon
+   `Email__From=gerencia@bienesraiceswhite.co`.
+
+**Opción B · Brevo** (https://brevo.com — gratis, 300/día, permite varios destinatarios):
+
+1. Regístrate. *Senders, Domains & Dedicated IPs* → añade y **verifica** `gerencia@bienesraiceswhite.co`
+   (te llega un correo, haces clic en el enlace).
+2. *SMTP & API* → *API Keys* → genera una (`xkeysib-...`).
+3. En Render:
+
+   | Key | Value |
+   |---|---|
+   | `Email__ApiKey` | la clave `xkeysib-...` |
+   | `Email__From` | `gerencia@bienesraiceswhite.co` (el remitente verificado) |
+   | `Email__To` | `gerencia@bienesraiceswhite.co` (varios separados por coma) |
+
+Si dejas `Email__ApiKey` vacía, el bot funciona igual pero solo avisa por WhatsApp.
+
+> Las variables `Email__SmtpHost/SmtpPort/User/Password` de versiones anteriores ya **no se usan**
+> (bórralas de Render si las tienes).
 
 ---
 
