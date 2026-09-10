@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.DependencyInjection;
 using WhatsappBot.Functions.Flow;
 using WhatsappBot.Functions.Models;
@@ -24,6 +25,14 @@ builder.Services.AddScoped<IConversationStateService, PostgresConversationStateS
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ILeadRepository, PostgresLeadRepository>();
 builder.Services.AddScoped<FlowEngine>();
+
+// Render (y cualquier proxy TLS) manda el esquema real en X-Forwarded-Proto.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
 
 // ---- Panel de control ----
 builder.Services.AddScoped<PanelData>();
@@ -55,6 +64,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<IDbInitializer>().EnsureAsync();
 }
 
+app.UseForwardedHeaders();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapRazorPages();
