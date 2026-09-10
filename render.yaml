@@ -10,7 +10,7 @@ services:
     dockerContext: .
     plan: free
     region: ohio          # misma zona que Neon (us-east-2) para menor latencia con la BD
-    healthCheckPath: /
+    healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: WhatsApp__VerifyToken
@@ -22,6 +22,10 @@ services:
       - key: WhatsApp__AdvisorPhoneNumber
         sync: false
       - key: PostgresConnectionString
+        sync: false
+      - key: Dashboard__Email
+        sync: false
+      - key: Dashboard__Password
         sync: false
       - key: PropertyScraper__ListingUrl
         value: https://bienesraiceswhite.co/inmuebles/

@@ -1,0 +1,95 @@
+@page "/panel/conversacion"
+@model WhatsappBot.Functions.Pages.Panel.ConversacionModel
+@using WhatsappBot.Functions.Models
+@using WhatsappBot.Functions.Services
+@{
+    ViewData["Title"] = "Conversación";
+    var d = Model.Detalle;
+}
+
+<p class="sub"><a href="/panel/conversaciones">← Conversaciones</a></p>
+
+@if (Model.Error is not null)
+{
+    <div class="panel"><div class="bd"><div class="empty">Error: @Model.Error</div></div></div>
+}
+else if (d is null)
+{
+    <h1>Conversación no encontrada</h1>
+    <p class="sub">No hay registro para +@Model.Tel.</p>
+}
+else
+{
+    <h1>@(string.IsNullOrWhiteSpace(d.Resumen.Nombre) ? "(sin nombre)" : d.Resumen.Nombre)</h1>
+    <p class="sub mono">+@d.Resumen.Telefono</p>
+
+    <div class="panel">
+        <div class="hd">Estado</div>
+        <div class="kv">
+            <div class="kk">Flujo</div><div>@(d.Resumen.Flujo is null ? "—" : Flujo.Etiqueta(d.Resumen.Flujo))</div>
+            <div class="kk">Paso</div><div>@(d.Resumen.Paso > 0 ? d.Resumen.Paso.ToString() : "—")</div>
+            <div class="kk">Estado</div>
+            <div>
+                @if (d.Resumen.CurrentStep == "finalizado")
+                { <span class="badge ok">finalizado (asesor notificado)</span> }
+                else
+                { <span class="badge">@d.Resumen.CurrentStep</span> }
+            </div>
+            <div class="kk">Última actividad</div>
+            <div class="mono">@PanelData.ToBogota(d.Resumen.UltimaActividadUtc).ToString("dd/MM/yyyy HH:mm")</div>
+        </div>
+    </div>
+
+    @if (d.Respuestas.Count > 0)
+    {
+        <div class="panel">
+            <div class="hd">Respuestas capturadas</div>
+            <div class="kv">
+                @foreach (var r in d.Respuestas)
+                {
+                    <div class="kk">@r.Pregunta</div><div>@r.Valor</div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (d.Inmuebles.Count > 0)
+    {
+        <div class="panel">
+            <div class="hd">Inmuebles mostrados</div>
+            <div class="bd" style="padding: 12px 18px;">
+                <ul style="margin:0; padding-left:18px;">
+                    @foreach (var i in d.Inmuebles)
+                    {
+                        <li style="margin-bottom:5px;">@i</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="hd">Transcripción (@d.Mensajes.Count mensajes)</div>
+        @if (d.Mensajes.Count == 0)
+        {
+            <div class="empty">No hay mensajes registrados (la bitácora empezó a guardar después de esta conversación).</div>
+        }
+        else
+        {
+            <div class="chat">
+                @foreach (var m in d.Mensajes)
+                {
+                    var failed = m.Direccion == "out" && m.Ok == false;
+                    <div class="msg @(m.Direccion == "in" ? "in" : "out") @(failed ? "failed" : "")">
+@m.Contenido
+                        @if (failed)
+                        {
+                            <span class="err">⚠️ Error de envío: @m.Error</span>
+                        }
+                        <span class="t">@(m.Direccion == "in" ? "Cliente" : "Bot") · @PanelData.ToBogota(m.CreadoUtc).ToString("dd/MM HH:mm:ss") · @m.Tipo</span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}

@@ -173,38 +173,61 @@ Si prefieres otro canal, en `Services/NotificationService.cs` puedes agregar, ju
 - **Microsoft Teams / Slack / Discord**: un webhook entrante del canal — un simple `HttpClient.PostAsync` con el mensaje en JSON.
 - **Guardar el lead y que un dashboard lo muestre**: ya se guarda en la tabla `leads` de PostgreSQL; se podría montar una vista sencilla más adelante.
 
-## 8. Qué contiene el proyecto
+## 8. Panel de control (`/panel`)
+
+La misma app sirve un panel web protegido con login para que el equipo comercial vea la
+actividad del bot, sin abrir la base de datos.
+
+| Página | Qué muestra |
+|---|---|
+| `/panel` | Tarjetas con totales (conversaciones, leads hoy/semana/sin atender, mensajes hoy, **errores de envío**), gráfico de solicitudes por tipo, y las conversaciones más recientes. |
+| `/panel/conversaciones` | Todos los números que han escrito, con buscador; en qué flujo y paso quedaron. |
+| `/panel/conversacion?tel=…` | Ficha de un contacto: estado, **respuestas capturadas**, inmuebles mostrados y la **transcripción completa** (chat) con los envíos que fallaron marcados en rojo. |
+| `/panel/leads` | Los leads (flujo completado → asesor notificado), con filtros y botón para marcarlos **atendido**. |
+| `/panel/errores` | Respuestas que WhatsApp **no** pudo entregar, con el error exacto de Meta. |
+
+**Login**: usuario/clave únicos en las variables `Dashboard__Email` y `Dashboard__Password`
+(no van en el repo; se ponen en Render). El login tiene bloqueo tras 6 intentos fallidos.
+
+Para que el panel tenga transcripciones, el bot ahora **registra cada mensaje** (entrante y saliente,
+con el resultado del envío) en la tabla `message_log`.
+
+## 9. Qué contiene el proyecto
 
 ```
 whatsapp-bot-inmobiliaria/
-├── DEPLOY.md                                   Guía de despliegue (Neon + GitHub + Render + Meta) paso a paso
+├── DEPLOY.md                                   Guía de despliegue (Neon + GitHub + Render + Meta)
 ├── Dockerfile                                  Imagen de la app (la usa Render)
 ├── render.yaml                                 Blueprint de Render (crea el servicio solo)
-├── .env.example                                Lista de variables de entorno que necesita el bot
+├── .env.example                                Variables de entorno que necesita la app
+├── .github/workflows/ci.yml                    GitHub Actions: compila y dispara el deploy en Render
 ├── WhatsApp Gemini Chatbot.json                Workflow viejo de n8n (referencia)
-├── sql/schema.sql                              Tablas PostgreSQL: conversation_state, leads, message_log
+├── sql/schema.sql                              Tablas PostgreSQL (la app también las crea al arrancar)
 └── src/WhatsappBot.Functions/
-    ├── Program.cs                              Arranque de la app web + endpoints GET/POST /webhook
-    ├── appsettings.json                        Config de logging (sin secretos)
-    ├── Flow/FlowEngine.cs                      Máquina de estados del menú (el "cerebro" del bot)
-    ├── Models/                                 DTOs del payload de Meta + Property + ConversationState
+    ├── Program.cs                              Arranque, endpoints /webhook y montaje del panel
+    ├── Flow/FlowEngine.cs                      Máquina de estados de los 8 flujos (el "cerebro")
+    ├── Models/                                 DTOs de Meta + Property + ConversationState
+    ├── Pages/Panel/                            El panel de control (Razor Pages + login)
     └── Services/
-        ├── WhatsAppService.cs                  Enviar texto / botones / listas vía Graph API
+        ├── WhatsAppService.cs                  Enviar texto / botones / listas vía Graph API + bitácora
         ├── PropertyCatalogService.cs           Scrapea el listado del sitio (misma lógica que el n8n)
-        ├── PostgresConversationStateService.cs Persistencia del estado de la conversación en PostgreSQL
-        ├── PostgresLeadRepository.cs           Guarda los leads capturados en la tabla leads
+        ├── PostgresConversationStateService.cs Estado de la conversación en PostgreSQL
+        ├── PostgresLeadRepository.cs           Guarda los leads en la tabla leads
+        ├── PostgresMessageLog.cs               Bitácora de mensajes (alimenta el panel)
+        ├── PostgresDbInitializer.cs            Crea/actualiza las tablas al arrancar
+        ├── PanelData.cs                        Consultas de lectura del panel
         └── NotificationService.cs              Aviso al asesor humano (WhatsApp, uno o varios números)
 ```
 
 > La carpeta se llama `src/WhatsappBot.Functions/` por herencia de una versión anterior sobre Azure
 > Functions; hoy es una app web normal de ASP.NET Core (el ensamblado se llama `WhatsappBot`).
 
-## 9. Siguientes pasos sugeridos
+## 10. Siguientes pasos sugeridos
 
 1. Sigue [`DEPLOY.md`](DEPLOY.md) para dejarlo corriendo 24/7 y probarlo con tu número.
 2. Confirma en tu panel de Meta la tarifa real de "service messages" antes del 1 de octubre de 2026.
-3. Cuando estés conforme, deja en `WhatsApp:AdvisorPhoneNumber` los números reales de los asesores.
-4. Mejoras naturales más adelante: enriquecer cada inmueble leyendo también su ficha (precio, zona, área) para poder filtrar por presupuesto de verdad; mandar la foto del inmueble (WhatsApp soporta mensajes tipo `image` con `link`); o un mini panel web para que el asesor vea los leads sin depender solo del WhatsApp.
+3. Cuando estés conforme, deja en `WhatsApp__AdvisorPhoneNumber` los números reales de los asesores.
+4. Mejoras naturales más adelante: enriquecer cada inmueble leyendo también su ficha (precio, zona, área) para poder filtrar por presupuesto de verdad; mandar la foto del inmueble (WhatsApp soporta mensajes tipo `image` con `link`); exportar los leads del panel a CSV/Excel.
 
 ---
 

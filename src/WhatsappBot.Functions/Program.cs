@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dapper;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.DependencyInjection;
 using WhatsappBot.Functions.Flow;
 using WhatsappBot.Functions.Models;
@@ -14,6 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
+// ---- Bot ----
+builder.Services.AddSingleton<IMessageLog, PostgresMessageLog>();
+builder.Services.AddSingleton<IDbInitializer, PostgresDbInitializer>();
 builder.Services.AddHttpClient<IWhatsAppService, WhatsAppService>();
 builder.Services.AddHttpClient<IPropertyCatalogService, PropertyCatalogService>();
 builder.Services.AddScoped<IConversationStateService, PostgresConversationStateService>();
@@ -21,10 +25,43 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ILeadRepository, PostgresLeadRepository>();
 builder.Services.AddScoped<FlowEngine>();
 
+// ---- Panel de control ----
+builder.Services.AddScoped<PanelData>();
+builder.Services.AddRazorPages(o =>
+{
+    o.Conventions.AuthorizeFolder("/Panel");
+    o.Conventions.AllowAnonymousToPage("/Panel/Login");
+});
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(o =>
+    {
+        o.LoginPath = "/panel/login";
+        o.LogoutPath = "/panel/logout";
+        o.AccessDeniedPath = "/panel/login";
+        o.ExpireTimeSpan = TimeSpan.FromDays(7);
+        o.SlidingExpiration = true;
+        o.Cookie.Name = "brw_panel";
+        o.Cookie.HttpOnly = true;
+        o.Cookie.SameSite = SameSiteMode.Lax;
+    });
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
+// Crea/actualiza las tablas al arrancar.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<IDbInitializer>().EnsureAsync();
+}
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapRazorPages();
+
 // Raíz / sonda de salud (Render la usa para saber que el servicio está vivo).
-app.MapGet("/", () => "WhatsApp bot inmobiliaria — OK");
+app.MapGet("/", () => Results.Redirect("/panel"));
+app.MapGet("/health", () => "OK");
 
 // GET /webhook  -> verificación del webhook (Meta la llama una sola vez al configurarlo).
 app.MapGet("/webhook", (HttpRequest req, IConfiguration config, ILoggerFactory lf) =>
@@ -44,7 +81,7 @@ app.MapGet("/webhook", (HttpRequest req, IConfiguration config, ILoggerFactory l
 
     log.LogWarning("Intento de verificación de webhook con token inválido.");
     return Results.StatusCode(StatusCodes.Status403Forbidden);
-});
+}).AllowAnonymous();
 
 // POST /webhook -> aquí llegan los mensajes entrantes de WhatsApp.
 app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
@@ -68,8 +105,6 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
         return Results.Ok(); // 200 igual, para que Meta no siga reintentando.
     }
 
-    // Solo mensajes en los que el usuario "dijo o eligió" algo: texto o respuesta a botón/lista.
-    // Recibos de estado (entregado/leído) y otros tipos se ignoran sin tocar la base de datos.
     var lotes = (payload?.Entry.SelectMany(e => e.Changes).Select(c => c.Value)
                  ?? Enumerable.Empty<WhatsAppValue>()).ToList();
 
@@ -83,8 +118,10 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
 
     try
     {
-        var flow = req.HttpContext.RequestServices.GetRequiredService<FlowEngine>();
-        var store = req.HttpContext.RequestServices.GetRequiredService<IConversationStateService>();
+        var sp = req.HttpContext.RequestServices;
+        var flow = sp.GetRequiredService<FlowEngine>();
+        var store = sp.GetRequiredService<IConversationStateService>();
+        var msgLog = sp.GetRequiredService<IMessageLog>();
 
         foreach (var value in lotes)
         {
@@ -95,12 +132,18 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
             {
                 try
                 {
+                    var seleccion = mensaje.GetSelectedTitle();
+                    await msgLog.RegistrarEntranteAsync(
+                        mensaje.From,
+                        seleccion is null ? "texto" : "interactivo",
+                        seleccion ?? mensaje.GetRawInput());
+
                     var state = await store.GetOrCreateAsync(mensaje.From);
                     await flow.ProcesarMensajeAsync(
                         state,
                         mensaje.GetUserInput(),
                         mensaje.GetRawInput(),
-                        mensaje.GetSelectedTitle(),
+                        seleccion,
                         nombrePerfil);
                 }
                 catch (Exception ex)
@@ -118,6 +161,6 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
 
     // Meta espera un 200 rápido; si tardas mucho o devuelves error, reintenta el webhook.
     return Results.Ok();
-});
+}).AllowAnonymous();
 
 app.Run();

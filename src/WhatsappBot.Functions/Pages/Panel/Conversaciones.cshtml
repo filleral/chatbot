@@ -1,0 +1,65 @@
+@page "/panel/conversaciones"
+@model WhatsappBot.Functions.Pages.Panel.ConversacionesModel
+@using WhatsappBot.Functions.Models
+@using WhatsappBot.Functions.Services
+@{ ViewData["Title"] = "Conversaciones"; }
+
+<h1>Conversaciones</h1>
+<p class="sub">Todos los números que han escrito al bot y en qué punto quedaron.</p>
+
+<div class="panel">
+    <div class="hd">
+        <form method="get" class="filters">
+            <input type="text" name="q" value="@Model.Q" placeholder="Buscar por teléfono o nombre…" />
+            <button class="btn sm" type="submit">Buscar</button>
+            @if (!string.IsNullOrWhiteSpace(Model.Q))
+            {
+                <a class="btn sm" href="/panel/conversaciones">Limpiar</a>
+            }
+        </form>
+        <span class="muted">@Model.Conversaciones.Count resultado(s)</span>
+    </div>
+    <div class="bd">
+        @if (Model.Error is not null)
+        {
+            <div class="empty">Error: @Model.Error</div>
+        }
+        else if (Model.Conversaciones.Count == 0)
+        {
+            <div class="empty">Sin conversaciones.</div>
+        }
+        else
+        {
+            <div class="tablewrap">
+                <table>
+                    <thead>
+                        <tr><th>Contacto</th><th>Teléfono</th><th>Flujo</th><th>Paso</th><th>Estado</th><th>Msjs</th><th>Última actividad</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var c in Model.Conversaciones)
+                    {
+                        <tr>
+                            <td><a href="/panel/conversacion?tel=@c.Telefono">@(string.IsNullOrWhiteSpace(c.Nombre) ? "(sin nombre)" : c.Nombre)</a></td>
+                            <td class="mono nowrap">+@c.Telefono</td>
+                            <td>@(c.Flujo is null ? "—" : Flujo.Etiqueta(c.Flujo))</td>
+                            <td>@(c.Paso > 0 ? c.Paso.ToString() : "—")</td>
+                            <td>
+                                @if (c.CurrentStep == "finalizado")
+                                {
+                                    <span class="badge ok">finalizado</span>
+                                }
+                                else
+                                {
+                                    <span class="badge">@c.CurrentStep</span>
+                                }
+                            </td>
+                            <td>@c.TotalMensajes</td>
+                            <td class="mono nowrap muted">@PanelData.ToBogota(c.UltimaActividadUtc).ToString("dd/MM/yy HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

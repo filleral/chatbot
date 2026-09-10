@@ -104,13 +104,18 @@ En el servicio → pestaña **Environment** → añade estas (las mismas de [`.e
 | `WhatsApp__VerifyToken` | un texto que te inventes, ej. `mi-token-secreto-123` |
 | `WhatsApp__AccessToken` | tu token `EAA...` de Meta |
 | `WhatsApp__PhoneNumberId` | `526644653870463` |
-| `WhatsApp__AdvisorPhoneNumber` | `573219114191,573507633867` (uno o varios, con código de país, sin `+`) |
+| `WhatsApp__AdvisorPhoneNumber` | número(s) que reciben la alerta de lead, con código de país, sin `+` (varios separados por coma) |
 | `PostgresConnectionString` | la cadena de Neon del Paso 1 |
+| `Dashboard__Email` | correo para entrar al panel, ej. `gerencia@bienesraiceswhite.co` |
+| `Dashboard__Password` | contraseña del panel (elige una fuerte) |
 | `PropertyScraper__ListingUrl` | `https://bienesraiceswhite.co/inmuebles/` |
 
 **Save changes** → Render vuelve a desplegar. Espera a que el estado sea **Live** (verde).
 
-Tu URL queda como `https://whatsapp-bot-inmobiliaria.onrender.com` (Render te la muestra arriba).
+Tu URL queda como `https://whatsapp-bot-inmobiliaria.onrender.com` (Render te la muestra arriba):
+
+- `…/webhook` → lo que registras en Meta.
+- `…/panel` → el panel de control (pide el `Dashboard__Email` / `Dashboard__Password`).
 
 ---
 
@@ -144,15 +149,16 @@ levanta el servicio.)
 
 1. *WhatsApp → Configuración de la API* → agrega tu número personal como destinatario de prueba.
 2. Escríbele al número del negocio → te llega el menú.
-3. Recorre el flujo: *Arriendo/Venta → zona → presupuesto → habitaciones → resultados → asesor*.
-4. Al pedir asesor y dar tu nombre: llega el aviso a `AdvisorPhoneNumber` y el lead queda en la
-   tabla `leads` de Neon.
+3. Recorre un flujo del menú (ej. *3 Comprar* o *6 Notarial*).
+4. Al terminar: llega el aviso a `AdvisorPhoneNumber` y el lead queda guardado.
+5. Abre **`https://…onrender.com/panel`**, entra con `Dashboard__Email` / `Dashboard__Password`
+   y revisa la conversación, el lead y (si hubo) los errores de envío.
 
 **Logs:** en Render, el servicio → pestaña **Logs** (en vivo).
 
 ---
 
-## 8. Actualizar el bot
+## 8. Actualizar el bot (GitHub Actions)
 
 Cambias código y:
 
@@ -162,7 +168,17 @@ git commit -m "descripción del cambio"
 git push
 ```
 
-Render detecta el push y redepliega solo (~2–3 min).
+Al hacer push, **GitHub Actions** (`.github/workflows/ci.yml`) compila el proyecto. Si compila:
+
+- **Por defecto:** Render detecta el push y redepliega solo (~2–3 min).
+- **Deploy solo si compila (recomendado):**
+  1. Render → tu servicio → *Settings* → **Deploy Hook** → copia la URL.
+  2. GitHub → repo → *Settings* → *Secrets and variables* → *Actions* → **New repository secret**
+     → nombre `RENDER_DEPLOY_HOOK_URL`, valor = esa URL.
+  3. Render → tu servicio → *Settings* → **Auto-Deploy** → **Off**.
+
+  Ahora el deploy lo dispara la Action *después* de compilar bien: un error de código nunca
+  llega a producción.
 
 ---
 
@@ -172,7 +188,7 @@ El plan Free de Render apaga el servicio tras 15 min sin tráfico; el primer men
 tarda ~1 min (Meta reintenta, no se pierde). Para evitarlo, ponle un "ping" cada 10 minutos:
 
 1. https://cron-job.org (gratis) → **Create cronjob**.
-2. URL: `https://whatsapp-bot-inmobiliaria.onrender.com/`
+2. URL: `https://whatsapp-bot-inmobiliaria.onrender.com/health`
 3. Cada **10 minutos**.
 
 Con eso el servicio nunca se apaga y responde al instante. (Un servicio Free tiene 750 horas/mes

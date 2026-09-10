@@ -1,0 +1,89 @@
+@page "/panel/leads"
+@model WhatsappBot.Functions.Pages.Panel.LeadsModel
+@using WhatsappBot.Functions.Models
+@using WhatsappBot.Functions.Services
+@{ ViewData["Title"] = "Leads"; }
+
+<h1>Leads</h1>
+<p class="sub">Clientes que completaron un flujo y fueron pasados a un asesor.</p>
+
+<div class="panel">
+    <div class="hd">
+        <form method="get" class="filters">
+            <select name="flujo" onchange="this.form.submit()">
+                @foreach (var (val, txt) in WhatsappBot.Functions.Pages.Panel.LeadsModel.Flujos)
+                {
+                    <option value="@val" selected="@(Model.Flujo == val || (string.IsNullOrEmpty(Model.Flujo) && val == ""))">@txt</option>
+                }
+            </select>
+            <select name="estado" onchange="this.form.submit()">
+                <option value="" selected="@string.IsNullOrEmpty(Model.Estado)">Cualquier estado</option>
+                <option value="notificado" selected="@(Model.Estado == "notificado")">Sin atender</option>
+                <option value="atendido" selected="@(Model.Estado == "atendido")">Atendidos</option>
+            </select>
+        </form>
+        <span class="muted">@Model.Leads.Count lead(s)</span>
+    </div>
+    <div class="bd">
+        @if (Model.Error is not null)
+        {
+            <div class="empty">Error: @Model.Error</div>
+        }
+        else if (Model.Leads.Count == 0)
+        {
+            <div class="empty">No hay leads con esos filtros.</div>
+        }
+        else
+        {
+            <div class="tablewrap">
+                <table>
+                    <thead>
+                        <tr><th>Fecha</th><th>Contacto</th><th>Teléfono</th><th>Solicitud</th><th>Detalle</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var l in Model.Leads)
+                    {
+                        <tr>
+                            <td class="mono nowrap muted">@PanelData.ToBogota(l.CreadoUtc).ToString("dd/MM/yy HH:mm")</td>
+                            <td>@(string.IsNullOrWhiteSpace(l.Nombre) ? "(sin nombre)" : l.Nombre)</td>
+                            <td class="mono nowrap"><a href="/panel/conversacion?tel=@l.Telefono">+@l.Telefono</a></td>
+                            <td><span class="badge accent">@Flujo.Etiqueta(l.Flujo)</span></td>
+                            <td style="max-width:420px;">
+                                <div>@(string.IsNullOrWhiteSpace(l.Detalle) ? "—" : l.Detalle)</div>
+                                @if (!string.IsNullOrWhiteSpace(l.Inmuebles))
+                                {
+                                    <div class="muted" style="font-size:12px; margin-top:4px;">🏘️ @l.Inmuebles</div>
+                                }
+                            </td>
+                            <td>
+                                @if (l.Estado == "atendido")
+                                { <span class="badge ok">atendido</span> }
+                                else
+                                { <span class="badge warn">sin atender</span> }
+                            </td>
+                            <td class="nowrap">
+                                @if (l.Estado == "atendido")
+                                {
+                                    <form method="post" asp-page-handler="Estado" style="display:inline">
+                                        <input type="hidden" name="id" value="@l.Id" />
+                                        <input type="hidden" name="estado" value="notificado" />
+                                        <button class="btn sm" type="submit">Reabrir</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="Estado" style="display:inline">
+                                        <input type="hidden" name="id" value="@l.Id" />
+                                        <input type="hidden" name="estado" value="atendido" />
+                                        <button class="btn sm primary" type="submit">Marcar atendido</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

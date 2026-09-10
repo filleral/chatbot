@@ -1,0 +1,47 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Compilar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore src/WhatsappBot.Functions/WhatsappBot.Functions.csproj
+
+      - name: Build
+        run: dotnet build src/WhatsappBot.Functions/WhatsappBot.Functions.csproj -c Release --no-restore
+
+      - name: Publish (verifica que la imagen de Docker compilará)
+        run: dotnet publish src/WhatsappBot.Functions/WhatsappBot.Functions.csproj -c Release -o "${{ runner.temp }}/pub" --no-restore
+
+  deploy:
+    name: Desplegar en Render
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            echo "Disparando deploy en Render tras compilación exitosa…"
+            curl -fsS -X POST "$HOOK"
+            echo " deploy disparado"
+          else
+            echo "Secret RENDER_DEPLOY_HOOK_URL no configurado."
+            echo "Render sigue auto-desplegando por su cuenta al detectar el push."
+            echo "Para que el deploy pase SOLO si compila: agrega el secret y apaga Auto-Deploy en Render."
+          fi

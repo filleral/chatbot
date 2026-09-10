@@ -7,18 +7,21 @@ using Microsoft.Extensions.Logging;
 namespace WhatsappBot.Functions.Services;
 
 /// <summary>
-/// Envía mensajes usando la WhatsApp Cloud API de Meta (Graph API).
+/// Envía mensajes usando la WhatsApp Cloud API de Meta (Graph API) y deja constancia
+/// de cada envío (y su resultado) en la bitácora <see cref="IMessageLog"/>.
 /// Docs: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
 /// </summary>
 public class WhatsAppService : IWhatsAppService
 {
     private readonly HttpClient _http;
+    private readonly IMessageLog _log;
     private readonly ILogger<WhatsAppService> _logger;
     private readonly string _phoneNumberId;
 
-    public WhatsAppService(HttpClient http, IConfiguration config, ILogger<WhatsAppService> logger)
+    public WhatsAppService(HttpClient http, IConfiguration config, IMessageLog log, ILogger<WhatsAppService> logger)
     {
         _http = http;
+        _log = log;
         _logger = logger;
 
         var accessToken = config["WhatsApp:AccessToken"]
@@ -40,12 +43,12 @@ public class WhatsAppService : IWhatsAppService
             type = "text",
             text = new { body }
         };
-        return PostAsync(payload);
+        return PostAsync(payload, toPhoneNumber, "texto", body);
     }
 
     public Task SendButtonsAsync(string toPhoneNumber, string bodyText, IReadOnlyList<(string Id, string Title)> buttons)
     {
-        // WhatsApp permite máximo 3 botones de respuesta rápida por mensaje.
+        var usados = buttons.Take(3).ToList();
         var payload = new
         {
             messaging_product = "whatsapp",
@@ -57,7 +60,7 @@ public class WhatsAppService : IWhatsAppService
                 body = new { text = bodyText },
                 action = new
                 {
-                    buttons = buttons.Take(3).Select(b => new
+                    buttons = usados.Select(b => new
                     {
                         type = "reply",
                         reply = new { id = b.Id, title = b.Title }
@@ -65,13 +68,14 @@ public class WhatsAppService : IWhatsAppService
                 }
             }
         };
-        return PostAsync(payload);
+        var resumen = $"{bodyText}  [{string.Join(" / ", usados.Select(b => b.Title))}]";
+        return PostAsync(payload, toPhoneNumber, "botones", resumen);
     }
 
     public Task SendListAsync(string toPhoneNumber, string bodyText, string buttonLabel,
         IReadOnlyList<(string Id, string Title, string? Description)> rows)
     {
-        // WhatsApp permite hasta 10 filas en una lista interactiva.
+        var usadas = rows.Take(10).ToList();
         var payload = new
         {
             messaging_product = "whatsapp",
@@ -89,7 +93,7 @@ public class WhatsAppService : IWhatsAppService
                         new
                         {
                             title = "Opciones",
-                            rows = rows.Take(10).Select(r => new
+                            rows = usadas.Select(r => new
                             {
                                 id = r.Id,
                                 title = r.Title,
@@ -100,21 +104,34 @@ public class WhatsAppService : IWhatsAppService
                 }
             }
         };
-        return PostAsync(payload);
+        var resumen = $"{bodyText}  [{string.Join(" / ", usadas.Select(r => r.Title))}]";
+        return PostAsync(payload, toPhoneNumber, "lista", resumen);
     }
 
-    private async Task PostAsync(object payload)
+    private async Task PostAsync(object payload, string toPhoneNumber, string tipo, string contenido)
     {
         var json = JsonSerializer.Serialize(payload);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _http.PostAsync($"{_phoneNumberId}/messages", content);
-        var responseBody = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
+        var ok = false;
+        string? error = null;
+        try
         {
-            // No relanzar: un fallo al enviar no debe tumbar el webhook (Meta reintenta el POST entrante).
-            _logger.LogError("Error enviando mensaje de WhatsApp ({Status}): {Body}", response.StatusCode, responseBody);
+            var response = await _http.PostAsync($"{_phoneNumberId}/messages", content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            ok = response.IsSuccessStatusCode;
+            if (!ok)
+            {
+                error = $"HTTP {(int)response.StatusCode}: {responseBody}";
+                _logger.LogError("Error enviando mensaje de WhatsApp: {Error}", error);
+            }
         }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            _logger.LogError(ex, "Excepción enviando mensaje de WhatsApp a {To}", toPhoneNumber);
+        }
+
+        await _log.RegistrarSalienteAsync(toPhoneNumber, tipo, contenido, ok, error);
     }
 }

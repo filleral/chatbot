@@ -1,0 +1,40 @@
+@page "/panel/errores"
+@model WhatsappBot.Functions.Pages.Panel.ErroresModel
+@using WhatsappBot.Functions.Services
+@{ ViewData["Title"] = "Errores"; }
+
+<h1>Errores de envío</h1>
+<p class="sub">Respuestas del bot que WhatsApp <strong>no</strong> pudo entregar. Lo más común: el número no está en la lista de destinatarios permitidos (modo de prueba) o el token venció.</p>
+
+<div class="panel">
+    <div class="hd"><span>Últimos 200</span><span class="muted">@Model.Errores.Count</span></div>
+    <div class="bd">
+        @if (Model.Error is not null)
+        {
+            <div class="empty">Error: @Model.Error</div>
+        }
+        else if (Model.Errores.Count == 0)
+        {
+            <div class="empty">🎉 Sin errores de envío.</div>
+        }
+        else
+        {
+            <div class="tablewrap">
+                <table>
+                    <thead><tr><th>Fecha</th><th>Teléfono</th><th>Mensaje</th><th>Error de Meta</th></tr></thead>
+                    <tbody>
+                    @foreach (var e in Model.Errores)
+                    {
+                        <tr>
+                            <td class="mono nowrap muted">@PanelData.ToBogota(e.CreadoUtc).ToString("dd/MM/yy HH:mm:ss")</td>
+                            <td class="mono nowrap"><a href="/panel/conversacion?tel=@e.Telefono">+@e.Telefono</a></td>
+                            <td style="max-width:280px;" class="muted">@(e.Contenido?.Length > 120 ? e.Contenido[..120] + "…" : e.Contenido)</td>
+                            <td style="max-width:460px;"><code style="font-size:12px; color:var(--err); white-space:pre-wrap;">@e.Error</code></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

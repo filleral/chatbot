@@ -1,0 +1,87 @@
+@page "/panel"
+@model WhatsappBot.Functions.Pages.Panel.IndexModel
+@using WhatsappBot.Functions.Models
+@using WhatsappBot.Functions.Services
+@{
+    ViewData["Title"] = "Inicio";
+    var maxFlujo = Model.Stats.PorFlujo.Count > 0 ? Model.Stats.PorFlujo.Max(x => x.Total) : 1;
+}
+
+<h1>Panel de control</h1>
+<p class="sub">Actividad del bot de WhatsApp de Bienes Raíces White.</p>
+
+@if (Model.Error is not null)
+{
+    <div class="panel"><div class="bd"><div class="empty">No se pudo leer la base de datos: @Model.Error</div></div></div>
+}
+
+<div class="grid">
+    <div class="card"><div class="k">Conversaciones</div><div class="v">@Model.Stats.Conversaciones</div></div>
+    <div class="card"><div class="k">Leads hoy</div><div class="v">@Model.Stats.LeadsHoy</div></div>
+    <div class="card"><div class="k">Leads últimos 7 días</div><div class="v">@Model.Stats.LeadsSemana</div></div>
+    <div class="card"><div class="k">Leads sin atender</div><div class="v">@Model.Stats.LeadsPendientes</div></div>
+    <div class="card"><div class="k">Mensajes hoy</div><div class="v">@Model.Stats.MensajesHoy</div></div>
+    <div class="card">
+        <div class="k">Errores de envío (24 h)</div>
+        <div class="v @(Model.Stats.ErroresUlt24h > 0 ? "err" : "")">@Model.Stats.ErroresUlt24h</div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="hd">Solicitudes por tipo</div>
+    <div class="bd">
+        @if (Model.Stats.PorFlujo.Count == 0)
+        {
+            <div class="empty">Todavía no hay leads registrados.</div>
+        }
+        else
+        {
+            <div style="padding: 10px 18px 16px; display:flex; flex-direction:column; gap:9px;">
+                @foreach (var f in Model.Stats.PorFlujo)
+                {
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:170px; flex-shrink:0;" class="muted">@Flujo.Etiqueta(f.Flujo)</div>
+                        <div style="flex:1; background:var(--bg); border-radius:6px; overflow:hidden; height:20px;">
+                            <div style="height:100%; width:@(Math.Max(4, f.Total * 100 / maxFlujo))%; background:var(--accent-dim);"></div>
+                        </div>
+                        <div style="width:34px; text-align:right; font-weight:600;">@f.Total</div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div class="panel">
+    <div class="hd">
+        <span>Conversaciones recientes</span>
+        <a class="badge" href="/panel/conversaciones">Ver todas</a>
+    </div>
+    <div class="bd">
+        @if (Model.Recientes.Count == 0)
+        {
+            <div class="empty">Sin conversaciones todavía.</div>
+        }
+        else
+        {
+            <div class="tablewrap">
+                <table>
+                    <thead><tr><th>Contacto</th><th>Teléfono</th><th>Flujo</th><th>Estado</th><th>Msjs</th><th>Última actividad</th></tr></thead>
+                    <tbody>
+                    @foreach (var c in Model.Recientes)
+                    {
+                        <tr>
+                            <td><a href="/panel/conversacion?tel=@c.Telefono">@(string.IsNullOrWhiteSpace(c.Nombre) ? "(sin nombre)" : c.Nombre)</a></td>
+                            <td class="mono nowrap">+@c.Telefono</td>
+                            <td>@(c.Flujo is null ? "—" : Flujo.Etiqueta(c.Flujo))</td>
+                            <td><span class="badge">@c.CurrentStep</span></td>
+                            <td>@c.TotalMensajes</td>
+                            <td class="mono nowrap muted">@PanelData.ToBogota(c.UltimaActividadUtc).ToString("dd/MM HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

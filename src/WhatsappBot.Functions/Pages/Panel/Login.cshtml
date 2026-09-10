@@ -1,0 +1,54 @@
+@page "/panel/login"
+@model WhatsappBot.Functions.Pages.Panel.LoginModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Ingresar";
+}
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Ingresar · Bienes Raíces White</title>
+    <style>
+        :root { --bg:#0f1216; --panel:#161b22; --line:#232a34; --tx:#e6e9ef; --muted:#8b95a5; --accent:#cf436a; --err:#e5534b; }
+        * { box-sizing: border-box; }
+        body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+            background: radial-gradient(1200px 600px at 50% -10%, #1b2028, var(--bg));
+            color:var(--tx); font:14px/1.5 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif; padding:20px; }
+        form { width:100%; max-width:360px; background:var(--panel); border:1px solid var(--line);
+            border-radius:16px; padding:28px 26px; }
+        .brand { display:flex; align-items:center; gap:9px; font-weight:700; font-size:15px; }
+        .brand .dot { width:10px; height:10px; border-radius:3px; background:var(--accent); box-shadow:0 0 0 4px rgba(207,67,106,.18); }
+        h1 { font-size:16px; font-weight:600; margin:16px 0 20px; color:var(--muted); }
+        label { display:block; font-size:12px; color:var(--muted); margin-bottom:14px; }
+        input { display:block; width:100%; margin-top:5px; background:var(--bg); border:1px solid var(--line);
+            color:var(--tx); border-radius:9px; padding:10px 12px; font:inherit; }
+        input:focus { outline:none; border-color:var(--accent); }
+        button { width:100%; margin-top:6px; padding:11px; border:0; border-radius:9px; background:var(--accent);
+            color:#fff; font:inherit; font-weight:700; cursor:pointer; }
+        button:hover { filter:brightness(1.08); }
+        .err { background:rgba(229,83,75,.12); border:1px solid rgba(229,83,75,.5); color:var(--err);
+            border-radius:9px; padding:9px 12px; font-size:13px; margin-bottom:16px; }
+    </style>
+</head>
+<body>
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <div class="brand"><span class="dot"></span> Bienes Raíces White</div>
+        <h1>Panel de control del bot</h1>
+        @if (Model.Error is not null)
+        {
+            <div class="err">@Model.Error</div>
+        }
+        <label>Correo
+            <input type="email" name="Email" value="@Model.Email" autocomplete="username" required autofocus />
+        </label>
+        <label>Contraseña
+            <input type="password" name="Password" autocomplete="current-password" required />
+        </label>
+        <button type="submit">Ingresar</button>
+    </form>
+</body>
+</html>
