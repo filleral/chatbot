@@ -8,3 +8,8 @@ local.settings.json
 appsettings.Development.json
 appsettings.Local.json
 .env
+
+# Workflows viejos de n8n (contienen tokens) — solo referencia local
+referencia-n8n/
+WordPress a Redes Sociales.json
+WhatsApp Gemini Chatbot.json

@@ -206,7 +206,7 @@ whatsapp-bot-inmobiliaria/
 ├── render.yaml                                 Blueprint de Render (crea el servicio solo)
 ├── .env.example                                Variables de entorno que necesita la app
 ├── .github/workflows/ci.yml                    GitHub Actions: compila y dispara el deploy en Render
-├── WhatsApp Gemini Chatbot.json                Workflow viejo de n8n (referencia)
+├── referencia-n8n/                             Workflows viejos de n8n (ignorados por git — tienen tokens)
 ├── sql/schema.sql                              Tablas PostgreSQL (la app también las crea al arrancar)
 └── src/WhatsappBot.Functions/
     ├── Program.cs                              Arranque, endpoints /webhook y montaje del panel
