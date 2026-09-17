@@ -173,6 +173,16 @@ app.MapPost("/webhook", async (HttpRequest req, ILoggerFactory lf) =>
             foreach (var mensaje in (value.Messages ?? new List<WhatsAppMessage>())
                          .Where(m => m.Type is "text" or "interactive" or "button"))
             {
+                // Algunos mensajes (p. ej. los que llegan desde un botón "Enviar mensaje" de un
+                // post/anuncio de Facebook) pueden traer el remitente vacío. Sin número no hay a
+                // quién responderle: se registra para diagnóstico y se ignora, en vez de crear una
+                // conversación fantasma que solo genera errores de envío en cadena.
+                if (string.IsNullOrWhiteSpace(mensaje.From))
+                {
+                    log.LogWarning("Mensaje sin remitente (From vacío), se ignora. Payload: {Body}", body);
+                    continue;
+                }
+
                 try
                 {
                     var seleccion = mensaje.GetSelectedTitle();

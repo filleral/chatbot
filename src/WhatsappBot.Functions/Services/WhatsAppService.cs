@@ -110,6 +110,15 @@ public class WhatsAppService : IWhatsAppService
 
     private async Task PostAsync(object payload, string toPhoneNumber, string tipo, string contenido)
     {
+        // Nunca llamar a la API con un destinatario vacío: Meta lo rechaza igual, pero así nos
+        // ahorramos la llamada y dejamos un error claro (en vez del genérico "to is required").
+        if (string.IsNullOrWhiteSpace(toPhoneNumber))
+        {
+            _logger.LogError("Se intentó enviar un WhatsApp sin número de destino. Tipo: {Tipo}", tipo);
+            await _log.RegistrarSalienteAsync("(sin número)", tipo, contenido, false, "Número de destino vacío; no se envió.");
+            return;
+        }
+
         var json = JsonSerializer.Serialize(payload);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
