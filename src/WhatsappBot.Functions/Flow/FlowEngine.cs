@@ -129,7 +129,8 @@ public class FlowEngine
             "5️⃣ ¿Deseas obtener asesoría para la venta de tu inmueble?\n" +
             "6️⃣ ¿Deseas asesoría notarial?\n" +
             "7️⃣ ¿Deseas asesoría jurídica?\n" +
-            "8️⃣ Otro";
+            "8️⃣ Otro\n\n" +
+            "🔗 Conoce nuestra tarjeta digital: https://tarjetainmobiliaria.web.app/";
 
         if (!string.IsNullOrEmpty(aviso))
             cuerpo = aviso + "\n\n" + cuerpo;
