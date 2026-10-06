@@ -542,7 +542,16 @@ public class FlowEngine
             _logger.LogError(ex, "No se pudo guardar el lead de {Phone}", s.PhoneNumber);
         }
 
-        await _notifications.NotificarAsesorAsync(s);
+        try
+        {
+            await _notifications.NotificarAsesorAsync(s);
+        }
+        catch (Exception ex)
+        {
+            // El aviso (WhatsApp/correo) ya maneja sus propios fallos por canal; esto es un
+            // último seguro para que, pase lo que pase, el cliente siempre reciba su confirmación.
+            _logger.LogError(ex, "Fallo inesperado notificando al asesor de {Phone}", s.PhoneNumber);
+        }
 
         await _whatsApp.SendTextAsync(s.PhoneNumber,
             $"¡Perfecto{(string.IsNullOrWhiteSpace(s.NombreContacto) ? "" : $", {s.NombreContacto}")}! " +

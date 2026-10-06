@@ -60,24 +60,45 @@ public class EmailSender : IEmailSender
         if (!Configurado)
             return (false, "Correo no configurado (falta Email__ApiKey / Email__To, o Email__From en Brevo).");
 
-        try
-        {
-            using var req = _prov == Proveedor.Resend
-                ? ConstruirResend(asunto, cuerpoHtml)
-                : ConstruirBrevo(asunto, cuerpoHtml);
+        // El aviso al asesor no puede perderse por un corte momentáneo de red o un 5xx del
+        // proveedor: se intenta hasta 3 veces, con una pausa corta entre cada una.
+        const int intentos = 3;
+        string? ultimoError = null;
 
-            using var resp = await _http.SendAsync(req);
-            var body = await resp.Content.ReadAsStringAsync();
-
-            return resp.IsSuccessStatusCode
-                ? (true, null)
-                : (false, $"HTTP {(int)resp.StatusCode}: {Recortar(body, 400)}");
-        }
-        catch (Exception ex)
+        for (var intento = 1; intento <= intentos; intento++)
         {
-            _logger.LogError(ex, "Error enviando el correo de aviso ({Prov})", _prov);
-            return (false, ex.Message);
+            try
+            {
+                using var req = _prov == Proveedor.Resend
+                    ? ConstruirResend(asunto, cuerpoHtml)
+                    : ConstruirBrevo(asunto, cuerpoHtml);
+
+                using var resp = await _http.SendAsync(req);
+                var body = await resp.Content.ReadAsStringAsync();
+
+                if (resp.IsSuccessStatusCode)
+                    return (true, null);
+
+                ultimoError = $"HTTP {(int)resp.StatusCode}: {Recortar(body, 400)}";
+
+                // Un error del cliente (clave inválida, remitente no verificado, destinatario
+                // rechazado...) no se arregla reintentando; solo vale la pena reintentar fallos
+                // transitorios del lado del proveedor o límites de tasa.
+                var reintentable = (int)resp.StatusCode is 429 or >= 500;
+                if (!reintentable) break;
+            }
+            catch (Exception ex)
+            {
+                ultimoError = ex.Message;
+                _logger.LogWarning(ex, "Intento {Intento}/{Total} fallido enviando correo ({Prov})", intento, intentos, _prov);
+            }
+
+            if (intento < intentos)
+                await Task.Delay(TimeSpan.FromSeconds(intento * 2));
         }
+
+        _logger.LogError("No se pudo enviar el correo de aviso tras {Intentos} intentos ({Prov}): {Error}", intentos, _prov, ultimoError);
+        return (false, ultimoError);
     }
 
     private HttpRequestMessage ConstruirResend(string asunto, string html)
